@@ -5,6 +5,8 @@ pragma solidity ^0.6.0;
 import "./ERC20.sol";
 import "./IERC1363.sol";
 import "./ERC165.sol";
+import "./IERC1363Receiver.sol";
+import "./IERC1363Spender.sol";
 
 contract ERC1363 is ERC20, IERC1363, ERC165 {
     using Address for address;
