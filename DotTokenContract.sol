@@ -1,6 +1,23 @@
 
 pragma solidity ^0.6.0;
 
+/*
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/AccessControl.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Address.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Context.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC165.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC165Checker.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/EnumerableSet.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363Receiver.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363Spender.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC165.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC20.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Ownable.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Pausable.sol";
+*/
+
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Capped.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Burnable.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC1363.sol";
@@ -8,10 +25,10 @@ import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/TokenRecover.sol";
 
 /**
- * @title DotToken
+ * @title DotTokenContract
  * @author DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
-contract DotToken is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRecover {
+contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRecover {
 
     // indicates if minting is finished
     bool private _mintingFinished = false;
