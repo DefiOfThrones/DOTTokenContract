@@ -1,6 +1,7 @@
 pragma solidity ^0.6.0;
 
 import "./Ownable.sol";
+import "./IERC20.sol";
 
 contract TokenRecover is Ownable {
 
