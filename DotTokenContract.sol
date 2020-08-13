@@ -1,7 +1,11 @@
 
 pragma solidity ^0.6.0;
 
-
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Capped.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Burnable.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC1363.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Roles.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/TokenRecover.sol";
 
 /**
  * @title DotToken
