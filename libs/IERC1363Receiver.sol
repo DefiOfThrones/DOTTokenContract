@@ -1,14 +1,5 @@
-// File: erc-payable-token/contracts/token/ERC1363/IERC1363Receiver.sol
-
 pragma solidity ^0.6.0;
 
-/**
- * @title IERC1363Receiver Interface
- * @author Vittorio Minacori (https://github.com/vittominacori)
- * @dev Interface for any contract that wants to support transferAndCall or transferFromAndCall
- *  from ERC1363 token contracts as defined in
- *  https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1363.md
- */
 interface IERC1363Receiver {
     /*
      * Note: the ERC-165 identifier for this interface is 0x88a7ca5c.

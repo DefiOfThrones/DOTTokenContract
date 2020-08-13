@@ -1,7 +1,7 @@
-// File: @openzeppelin/contracts/token/ERC20/ERC20Capped.sol
-
 pragma solidity ^0.6.0;
 
+import "./ERC20Capped.sol";
+import "./ERC20.sol";
 
 /**
  * @dev Extension of {ERC20} that adds a cap to the supply of tokens.

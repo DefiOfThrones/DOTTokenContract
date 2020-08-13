@@ -1,19 +1,11 @@
-// File: erc-payable-token/contracts/token/ERC1363/ERC1363.sol
-
 pragma solidity ^0.6.0;
 
 
 
+import "./ERC20.sol";
+import "./IERC1363.sol";
+import "./ERC165.sol";
 
-
-
-
-
-/**
- * @title ERC1363
- * @author Vittorio Minacori (https://github.com/vittominacori)
- * @dev Implementation of an ERC1363 interface
- */
 contract ERC1363 is ERC20, IERC1363, ERC165 {
     using Address for address;
 

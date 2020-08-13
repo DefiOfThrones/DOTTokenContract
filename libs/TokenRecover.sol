@@ -1,14 +1,7 @@
-// File: eth-token-recover/contracts/TokenRecover.sol
-
 pragma solidity ^0.6.0;
 
+import "./Ownable.sol";
 
-
-/**
- * @title TokenRecover
- * @author Vittorio Minacori (https://github.com/vittominacori)
- * @dev Allow to recover any ERC20 sent into the contract for error
- */
 contract TokenRecover is Ownable {
 
     /**

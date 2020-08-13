@@ -1,8 +1,7 @@
-// File: @openzeppelin/contracts/token/ERC20/ERC20.sol
-
 pragma solidity ^0.6.0;
 
-
+import "./Context.sol";
+import "./IERC20.sol";
 
 /**
  * @dev Implementation of the {IERC20} interface.

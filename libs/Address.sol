@@ -1,5 +1,3 @@
-// File: @openzeppelin/contracts/utils/Address.sol
-
 pragma solidity ^0.6.2;
 
 /**

@@ -1,8 +1,7 @@
-// File: @openzeppelin/contracts/token/ERC20/ERC20Burnable.sol
-
 pragma solidity ^0.6.0;
 
-
+import "./IERC20.sol";
+import "./Context.sol";
 
 /**
  * @dev Extension of {ERC20} that allows token holders to destroy both their own

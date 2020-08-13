@@ -1,7 +1,6 @@
-// File: contracts/access/Roles.sol
-
 pragma solidity ^0.6.0;
 
+import "./AccessControl.sol";
 
 contract Roles is AccessControl {
 

@@ -1,15 +1,8 @@
-// File: erc-payable-token/contracts/token/ERC1363/IERC1363.sol
-
 pragma solidity ^0.6.0;
 
+import "./IERC20.sol";
+import "./IERC165.sol";
 
-
-/**
- * @title IERC1363 Interface
- * @author Vittorio Minacori (https://github.com/vittominacori)
- * @dev Interface for a Payable Token contract as defined in
- *  https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1363.md
- */
 interface IERC1363 is IERC20, IERC165 {
     /*
      * Note: the ERC-165 identifier for this interface is 0x4bbee2df.

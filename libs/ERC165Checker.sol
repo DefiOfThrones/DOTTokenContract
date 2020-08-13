@@ -1,5 +1,3 @@
-// File: @openzeppelin/contracts/introspection/ERC165Checker.sol
-
 pragma solidity ^0.6.2;
 
 /**
