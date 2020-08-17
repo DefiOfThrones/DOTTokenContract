@@ -29,7 +29,7 @@ import "./Address.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, IERC20 {
+contract ERC20 is Context, IERC20, Pausable {
     using SafeMath for uint256;
     using Address for address;
 
@@ -131,7 +131,7 @@ contract ERC20 is Context, IERC20 {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+    function approve(address spender, uint256 amount) public virtual override whenNotPaused returns (bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }
