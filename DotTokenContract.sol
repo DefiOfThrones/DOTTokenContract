@@ -1,22 +1,6 @@
 
 pragma solidity ^0.6.0;
 
-/*
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/AccessControl.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Address.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Context.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC165.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC165Checker.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/EnumerableSet.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363Receiver.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC1363Spender.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC165.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/IERC20.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Ownable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Pausable.sol";
-*/
 
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Capped.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Burnable.sol";
@@ -30,38 +14,28 @@ import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/
  */
 contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRecover {
 
-    // indicates if minting is finished
-    bool private _mintingFinished = false;
-
     // indicates if transfer is enabled
     bool private _transferEnabled = false;
 
     /**
-     * @dev Emitted during finish minting
-     */
-    event MintFinished();
-
-    /**
-     * @dev Emitted during transfer enabling
+     * Emitted during transfer enabling
      */
     event TransferEnabled();
 
     /**
-     * @dev Tokens can be minted only before minting finished.
-     */
-    modifier canMint() {
-        require(!_mintingFinished, "BaseToken: minting is finished");
-        _;
-    }
-
-    /**
-     * @dev Tokens can be moved only after if transfer enabled or if you are an approved operator.
+     * Tokens can be moved only after if transfer enabled or if you are an approved operator.
      */
     modifier canTransfer(address from) {
         require(
             _transferEnabled || hasRole(OPERATOR_ROLE, from),
             "BaseToken: transfer is not enabled or from does not have the OPERATOR role"
         );
+        _;
+    }
+    
+    modifier validDestination( address to ) {
+        require(to != address(0x0));
+        require(to != address(this) );
         _;
     }
 
@@ -72,7 +46,6 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
      * @param cap Maximum number of tokens mintable
      * @param initialSupply Initial token supply
      * @param transferEnabled If transfer is enabled on token creation
-     * @param mintingFinished If minting is finished after token creation
      */
     constructor(
         string memory name,
@@ -80,16 +53,15 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
         uint8 decimals,
         uint256 cap,
         uint256 initialSupply,
-        bool transferEnabled,
-        bool mintingFinished
+        bool transferEnabled
     )
         public
         ERC20Capped(cap)
         ERC1363(name, symbol)
     {
         require(
-            mintingFinished == false || cap == initialSupply,
-            "BaseToken: if finish minting, cap must be equal to initialSupply"
+            cap == initialSupply,
+            "BaseToken: cap must be equal to initialSupply"
         );
 
         _setupDecimals(decimals);
@@ -98,20 +70,9 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
             _mint(owner(), initialSupply);
         }
 
-        if (mintingFinished) {
-            finishMinting();
-        }
-
         if (transferEnabled) {
             enableTransfer();
         }
-    }
-
-    /**
-     * @return if minting is finished or not.
-     */
-    function mintingFinished() public view returns (bool) {
-        return _mintingFinished;
     }
 
     /**
@@ -122,46 +83,28 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
     }
 
     /**
-     * @dev Function to mint tokens.
-     * @param to The address that will receive the minted tokens
-     * @param value The amount of tokens to mint
-     */
-    function mint(address to, uint256 value) public canMint onlyMinter {
-        _mint(to, value);
-    }
-
-    /**
-     * @dev Transfer tokens to a specified address.
+     * Transfer tokens to a specified address.
      * @param to The address to transfer to
      * @param value The amount to be transferred
      * @return A boolean that indicates if the operation was successful.
      */
-    function transfer(address to, uint256 value) public virtual override(ERC20) canTransfer(_msgSender()) returns (bool) {
+    function transfer(address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(_msgSender()) returns (bool) {
         return super.transfer(to, value);
     }
 
     /**
-     * @dev Transfer tokens from one address to another.
+     * Transfer tokens from one address to another.
      * @param from The address which you want to send tokens from
      * @param to The address which you want to transfer to
      * @param value the amount of tokens to be transferred
      * @return A boolean that indicates if the operation was successful.
      */
-    function transferFrom(address from, address to, uint256 value) public virtual override(ERC20) canTransfer(from) returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(from) returns (bool) {
         return super.transferFrom(from, to, value);
     }
 
     /**
-     * @dev Function to stop minting new tokens.
-     */
-    function finishMinting() public canMint onlyOwner {
-        _mintingFinished = true;
-
-        emit MintFinished();
-    }
-
-    /**
-     * @dev Function to enable transfers.
+     * Function to enable transfers.
      */
     function enableTransfer() public onlyOwner {
         _transferEnabled = true;
@@ -170,9 +113,9 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
     }
 
     /**
-     * @dev See {ERC20-_beforeTokenTransfer}.
+     * See {ERC20-_beforeTokenTransfer}.
      */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Capped) {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Capped) validDestination(to) {
         super._beforeTokenTransfer(from, to, amount);
     }
 }
