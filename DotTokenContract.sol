@@ -31,7 +31,7 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
             _transferEnabled || hasRole(OPERATOR_ROLE, from),
             "DotTokenContract: transfer is not enabled or from does not have the OPERATOR role"
         );
-        require(whenNotPaused(), "Transfert is not allowed during pause")
+        require(whenNotPaused(), "Transfert is not allowed during pause");
         _;
     }
     
