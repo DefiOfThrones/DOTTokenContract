@@ -4,6 +4,7 @@ import "./Context.sol";
 import "./IERC20.sol";
 import "./SafeMath.sol";
 import "./Address.sol";
+import "./Pausable.sol";
 
 /**
  * @dev Implementation of the {IERC20} interface.
@@ -131,7 +132,7 @@ contract ERC20 is Context, IERC20, Pausable {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public virtual override whenNotPaused returns (bool) {
+    function approve(address spender, uint256 amount) public virtual override whenNotPaused() returns (bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }

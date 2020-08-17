@@ -2,12 +2,12 @@
 pragma solidity ^0.6.0;
 
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Capped.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC20Burnable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/ERC1363.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Roles.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/TokenRecover.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Pausable.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC20Capped.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC20Burnable.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC1363.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Roles.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/TokenRecover.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Pausable.sol";
 
 /**
  * @title DotTokenContract
@@ -29,9 +29,9 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
     modifier canTransfer(address from) {
         require(
             _transferEnabled || hasRole(OPERATOR_ROLE, from),
-            "BaseToken: transfer is not enabled or from does not have the OPERATOR role"
+            "DotTokenContract: transfer is not enabled or from does not have the OPERATOR role"
         );
-        require(whenNotPaused)
+        require(whenNotPaused(), "Transfert is not allowed during pause")
         _;
     }
     
@@ -63,7 +63,7 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
     {
         require(
             cap == initialSupply,
-            "BaseToken: cap must be equal to initialSupply"
+            "DotTokenContract: cap must be equal to initialSupply"
         );
 
         _setupDecimals(decimals);
