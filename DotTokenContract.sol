@@ -31,7 +31,6 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
             _transferEnabled || hasRole(OPERATOR_ROLE, from),
             "DotTokenContract: transfer is not enabled or from does not have the OPERATOR role"
         );
-        require(whenNotPaused(), "Transfert is not allowed during pause");
         _;
     }
     
@@ -90,7 +89,7 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
      * @param value The amount to be transferred
      * @return A boolean that indicates if the operation was successful.
      */
-    function transfer(address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(_msgSender()) returns (bool) {
+    function transfer(address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(_msgSender()) whenNotPaused returns (bool) {
         return super.transfer(to, value);
     }
 
@@ -101,8 +100,21 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
      * @param value the amount of tokens to be transferred
      * @return A boolean that indicates if the operation was successful.
      */
-    function transferFrom(address from, address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(from) returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(from) whenNotPaused returns (bool) {
         return super.transferFrom(from, to, value);
+    }
+    
+    
+    function approve(address spender, uint256 amount) public virtual override(ERC20) whenNotPaused returns (bool) {
+         return super.approve(spender, amount);
+    }
+    
+    function increaseAllowance(address spender, uint256 addedValue) public virtual override(ERC20) whenNotPaused returns (bool) {
+        return super.increaseAllowance(spender, addedValue);
+    }
+    
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual override(ERC20) whenNotPaused returns (bool) {
+        return super.decreaseAllowance(spender, subtractedValue);
     }
 
     /**
