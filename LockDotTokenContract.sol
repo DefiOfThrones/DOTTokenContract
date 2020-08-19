@@ -292,8 +292,8 @@ contract LockDotTokenContract is ERC1132 {
     * @dev constructor to mint initial tokens
     * Shall update to _mint once openzepplin updates their npm package.
     */
-    constructor() public {
-        token = IDotTokenContract(0x9b5b411d8491D664F7d1992b3693CB1D00C4183F);
+    constructor(address dotxTokenAddress) public {
+        token = IDotTokenContract(dotxTokenAddress);
     }
 
     /**
