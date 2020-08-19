@@ -19,10 +19,6 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
 
     // indicates if transfer is enabled
     bool private _transferEnabled = false;
-    //LOCK FEATURE
-    string internal constant ALREADY_LOCKED = 'Tokens already locked';
-    string internal constant NOT_LOCKED = 'No tokens locked';
-    string internal constant AMOUNT_ZERO = 'Amount can not be 0';
 
     /**
      * Emitted during transfer enabling
