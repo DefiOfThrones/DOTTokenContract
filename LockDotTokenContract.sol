@@ -1,6 +1,5 @@
 pragma solidity 0.6.0;
 
-//TODO IMPORT github
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/IDotTokenContract.sol";
 
 library SafeMath {
