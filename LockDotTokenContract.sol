@@ -274,7 +274,7 @@ abstract contract ERC1132 {
 
 
 
-contract LockableContract is ERC1132 {
+contract LockDotTokenContract is ERC1132 {
     using SafeMath for uint;
    /**
     * @dev Error messages for require statements
