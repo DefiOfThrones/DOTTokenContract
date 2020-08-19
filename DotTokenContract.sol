@@ -9,6 +9,8 @@ import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/TokenRecover.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Pausable.sol";
 
+
+
 /**
  * @title DotTokenContract
  * @author DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
@@ -17,6 +19,10 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
 
     // indicates if transfer is enabled
     bool private _transferEnabled = false;
+    //LOCK FEATURE
+    string internal constant ALREADY_LOCKED = 'Tokens already locked';
+    string internal constant NOT_LOCKED = 'No tokens locked';
+    string internal constant AMOUNT_ZERO = 'Amount can not be 0';
 
     /**
      * Emitted during transfer enabling
@@ -40,14 +46,6 @@ contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRe
         _;
     }
 
-    /**
-     * @param name Name of the token
-     * @param symbol A symbol to be used as ticker
-     * @param decimals Number of decimals. All the operations are done using the smallest and indivisible token unit
-     * @param cap Maximum number of tokens mintable
-     * @param initialSupply Initial token supply
-     * @param transferEnabled If transfer is enabled on token creation
-     */
     constructor(
         string memory name,
         string memory symbol,
