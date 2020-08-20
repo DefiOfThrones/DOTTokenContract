@@ -53,7 +53,7 @@ contract Pausable is Ownable {
       return _publicSaleContractAddress;
   }
 
-  function publicSaleContractAddress(address publicSaleAddress) public view returns (address) {
+  function publicSaleContractAddress(address publicSaleAddress) public returns (address) {
       _publicSaleContractAddress = publicSaleAddress;
       return _publicSaleContractAddress;
   }
