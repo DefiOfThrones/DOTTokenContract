@@ -1,6 +1,8 @@
 pragma solidity 0.6.0;
 
+//TODO IMPORT github
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/IDotTokenContract.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Ownable.sol";
 
 library SafeMath {
     /**
@@ -273,7 +275,7 @@ abstract contract ERC1132 {
 
 
 
-contract LockDotTokenContract is ERC1132 {
+contract LockDotTokenContract is ERC1132, Ownable {
     using SafeMath for uint;
    /**
     * @dev Error messages for require statements
@@ -303,7 +305,7 @@ contract LockDotTokenContract is ERC1132 {
      * @param _time Lock time in seconds
      */
     function lock(string memory _reason, uint256 _amount, uint256 _time)
-        public override
+        public override onlyOwner
         returns (bool)
     {
         bytes32 reason = stringToBytes32(_reason);
@@ -334,7 +336,7 @@ contract LockDotTokenContract is ERC1132 {
      * @param _time Lock time in seconds
      */
     function transferWithLock(address _to, string memory _reason, uint256 _amount, uint256 _time)
-        public
+        public onlyOwner
         returns (bool)
     {
         bytes32 reason = stringToBytes32(_reason);
@@ -411,7 +413,7 @@ contract LockDotTokenContract is ERC1132 {
      * @param _time Lock extension time in seconds
      */
     function extendLock(string memory _reason, uint256 _time)
-        public override
+        public override onlyOwner
         returns (bool)
     {
         bytes32 reason = stringToBytes32(_reason);
@@ -429,7 +431,7 @@ contract LockDotTokenContract is ERC1132 {
      * @param _amount Number of tokens to be increased
      */
     function increaseLockAmount(string memory _reason, uint256 _amount)
-        public override
+        public override onlyOwner
         returns (bool)
     {
         bytes32 reason = stringToBytes32(_reason);
@@ -462,7 +464,7 @@ contract LockDotTokenContract is ERC1132 {
      * @param _of Address of user, claiming back unlockable tokens
      */
     function unlock(address _of)
-        public override
+        public override onlyOwner
         returns (uint256 unlockableTokens)
     {
         uint256 lockedTokens;
