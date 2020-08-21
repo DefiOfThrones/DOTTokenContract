@@ -54,7 +54,7 @@ contract Pausable is Ownable {
       return _publicSaleContractAddress;
   }
 
-  function publicSaleContractAddress(address publicSaleAddress) public returns (address) {
+  function publicSaleContractAddress(address publicSaleAddress) public onlyOwner returns (address) {
       _publicSaleContractAddress = publicSaleAddress;
       return _publicSaleContractAddress;
   }
@@ -63,7 +63,7 @@ contract Pausable is Ownable {
       return _swapWallet;
   }
 
-  function swapWallet(address swapWallet) public returns (address) {
+  function swapWallet(address swapWallet) public onlyOwner returns (address) {
       _swapWallet = swapWallet;
       return _swapWallet;
   }

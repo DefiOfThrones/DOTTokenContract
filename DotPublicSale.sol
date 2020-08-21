@@ -57,7 +57,7 @@ contract DotPublicSale is Pausable {
         contributors = contributors.add(1);
     
         forwardFunds();
-        TESTER
+        
         token.transfer(msg.sender, (tokenCount * 10**18));
     }
     
