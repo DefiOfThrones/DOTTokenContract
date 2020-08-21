@@ -1,129 +1,136 @@
-
 pragma solidity ^0.6.0;
 
-
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC20Capped.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC20Burnable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC1363.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Roles.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/TokenRecover.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Pausable.sol";
-
-
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Pausable.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/IDotTokenContract.sol";
 
 /**
- * @title DotTokenContract
+ * @title PublicSaleContract
  * @author DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
-contract DotTokenContract is ERC20Capped, ERC20Burnable, ERC1363, Roles, TokenRecover, Pausable {
+contract DotPublicSale is Pausable {
 
-    // indicates if transfer is enabled
-    bool private _transferEnabled = false;
+  using SafeMath for uint256;
+
+  uint256 public tokenPurchased;
+  uint256 public contributors;
+
+
+  uint256 public constant BASE_PRICE_IN_WEI = 105882000000000;
+
+  bool public isWhitelistEnabled = true;
+  uint256 public minWeiPurchasable = 500000000000000000;
+  uint256 public maxWeiPurchasable = 3000000000000000000;
+  mapping (address=>address) public whitelistedAddresses;
+  mapping (address=>bool) public salesDonePerUser;
+  address[] public whitelistedAddressesList;
+  IDotTokenContract private token;
+
+  uint256 public tokenCap;
+  bool public started = true;
+
+
+  constructor(address tokenAddress, uint256 cap) public {
+    token = IDotTokenContract(tokenAddress);
+    tokenCap = cap;
+  }
+
+  /**
+   * High level token purchase function
+   */
+  receive() external payable {
+    buyTokens();
+  }
 
     /**
-     * Emitted during transfer enabling
-     */
-    event TransferEnabled();
+   * Low level token purchase function
+   */
+    function buyTokens() public payable validPurchase{
+        salesDonePerUser[msg.sender] = true;
+        
+        uint256 tokenCount = msg.value/BASE_PRICE_IN_WEI;
 
-    /**
-     * Tokens can be moved only after if transfer enabled or if you are an approved operator.
-     */
-    modifier canTransfer(address from) {
-        require(
-            _transferEnabled || hasRole(OPERATOR_ROLE, from),
-            "DotTokenContract: transfer is not enabled or from does not have the OPERATOR role"
-        );
-        _;
+        tokenPurchased = tokenPurchased.add(tokenCount);
+        
+        require(tokenPurchased < tokenCap);
+    
+        contributors = contributors.add(1);
+    
+        forwardFunds();
+        
+        token.transfer(msg.sender, (tokenCount * (10**18)));
     }
     
-    modifier validDestination( address to ) {
-        require(to != address(0x0));
-        require(to != address(this) );
+    modifier validPurchase() {
+        require(started);
+        require(msg.value >= minWeiPurchasable);
+        require(msg.value <= maxWeiPurchasable);
+        require(!isWhitelistEnabled || whitelistedAddresses[msg.sender] == msg.sender);
+        require(salesDonePerUser[msg.sender] == false);
         _;
     }
 
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint8 decimals,
-        uint256 cap,
-        uint256 initialSupply,
-        bool transferEnabled
-    )
-        public
-        ERC20Capped(cap)
-        ERC1363(name, symbol)
+  /**
+  * Forwards funds to the tokensale wallet
+  */
+  function forwardFunds() internal {
+    address payable owner = payable(address(owner()));
+    owner.transfer(msg.value);
+  }
+
+    function isContract(address _addr) view internal returns(bool) {
+        uint size;
+        /*if (_addr == 0)
+          return false;*/
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return size>0;
+    }
+
+    function enableWhitelistVerification() public onlyOwner {
+        isWhitelistEnabled = true;
+    }
+    
+    function disableWhitelistVerification() public onlyOwner {
+        isWhitelistEnabled = false;
+    }
+    
+    function changeMinWeiPurchasable(uint256 value) public onlyOwner {
+        minWeiPurchasable = value;
+    }
+    
+    function changeMaxWeiPurchasable(uint256 value) public onlyOwner {
+        maxWeiPurchasable = value;
+    }
+    
+    function changeStartedState(bool value) public onlyOwner {
+        started = value;
+    }
+
+    function addToWhitelist(address sender) public onlyOwner {
+        addAddressToWhitelist(sender);
+    }
+    
+    function addAddressToWhitelist(address sender) private onlyOwner
     {
-        require(
-            cap == initialSupply,
-            "DotTokenContract: cap must be equal to initialSupply"
-        );
+        require(!isAddressWhitelisted(sender));
 
-        _setupDecimals(decimals);
-
-        if (initialSupply > 0) {
-            _mint(owner(), initialSupply);
-        }
-
-        if (transferEnabled) {
-            enableTransfer();
+        whitelistedAddresses[sender] = sender;
+        whitelistedAddressesList.push(sender);
+    }
+    
+    function addToWhitelist(address[] memory addresses) public onlyOwner {
+        for(uint i = 0; i < addresses.length; i++){
+            addToWhitelist(addresses[i]);
         }
     }
-
-    /**
-     * @return if transfer is enabled or not.
-     */
-    function transferEnabled() public view returns (bool) {
-        return _transferEnabled;
-    }
-
-    /**
-     * Transfer tokens to a specified address.
-     * @param to The address to transfer to
-     * @param value The amount to be transferred
-     * @return A boolean that indicates if the operation was successful.
-     */
-    function transfer(address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(_msgSender()) whenNotPaused returns (bool) {
-        return super.transfer(to, value);
-    }
-
-    /**
-     * Transfer tokens from one address to another.
-     * @param from The address which you want to send tokens from
-     * @param to The address which you want to transfer to
-     * @param value the amount of tokens to be transferred
-     * @return A boolean that indicates if the operation was successful.
-     */
-    function transferFrom(address from, address to, uint256 value) public virtual override(ERC20) validDestination(to) canTransfer(from) whenNotPaused returns (bool) {
-        return super.transferFrom(from, to, value);
+    
+    function isAddressWhitelisted(address sender) view public returns(bool) {
+        return !isWhitelistEnabled || whitelistedAddresses[sender] == sender;
     }
     
-    
-    function approve(address spender, uint256 amount) public virtual override(ERC20) whenNotPaused returns (bool) {
-         return super.approve(spender, amount);
-    }
-    
-    function increaseAllowance(address spender, uint256 addedValue) public virtual override(ERC20) whenNotPaused returns (bool) {
-        return super.increaseAllowance(spender, addedValue);
-    }
-    
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual override(ERC20) whenNotPaused returns (bool) {
-        return super.decreaseAllowance(spender, subtractedValue);
-    }
-
-    /**
-     * Function to enable transfers.
-     */
-    function enableTransfer() public onlyOwner {
-        _transferEnabled = true;
-
-        emit TransferEnabled();
-    }
-
-    /**
-     * See {ERC20-_beforeTokenTransfer}.
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Capped) validDestination(to) {
-        super._beforeTokenTransfer(from, to, amount);
+    function withdrawTokens(uint256 amount) public onlyOwner {
+        token.transfer(owner(), amount);
     }
 }

@@ -58,7 +58,7 @@ contract DotPublicSale is Pausable {
     
         forwardFunds();
         
-        token.transfer(msg.sender, (tokenCount * 10**18));
+        token.transfer(msg.sender, (tokenCount * (10**18)));
     }
     
     modifier validPurchase() {
