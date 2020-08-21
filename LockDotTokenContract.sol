@@ -501,6 +501,12 @@ contract LockDotTokenContract is ERC1132, Ownable {
             remainingTime = locked[_of][reason].validity.sub(now);
     }
     
+    function getremainingLockDays(address _of, string memory _reason) public view returns (uint256 remainingDays) {
+        bytes32 reason = stringToBytes32(_reason);
+        if (locked[_of][reason].validity > now && !locked[_of][reason].claimed) //solhint-disable-line
+            remainingDays = (locked[_of][reason].validity.sub(now)) / 86400;
+    }
+    
     /*
     UTILS
     */
