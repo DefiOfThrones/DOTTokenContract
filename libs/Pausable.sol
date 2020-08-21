@@ -10,6 +10,7 @@ contract Pausable is Ownable {
   event Pause();
   event Unpause();
   address private _publicSaleContractAddress;
+  address private _swapWallet;
 
   bool public paused = false;
 
@@ -19,7 +20,7 @@ contract Pausable is Ownable {
    * @dev modifier to allow actions only when the contract IS paused
    */
   modifier whenNotPaused() {
-    require(!paused || msg.sender == owner() || msg.sender == _publicSaleContractAddress);
+    require(!paused || msg.sender == owner() || msg.sender == _publicSaleContractAddress || msg.sender == _swapWallet);
     _;
   }
 
@@ -56,5 +57,14 @@ contract Pausable is Ownable {
   function publicSaleContractAddress(address publicSaleAddress) public returns (address) {
       _publicSaleContractAddress = publicSaleAddress;
       return _publicSaleContractAddress;
+  }
+
+  function swapWallet() public view returns (address) {
+      return _swapWallet;
+  }
+
+  function swapWallet(address swapWallet) public returns (address) {
+      _swapWallet = swapWallet;
+      return _swapWallet;
   }
 }
