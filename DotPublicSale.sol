@@ -20,7 +20,7 @@ contract DotPublicSale is Pausable {
 
   bool public isWhitelistEnabled = true;
   uint256 public minWeiPurchasable = 500000000000000000;
-  uint256 public maxWeiPurchasable = 3000000000000000000;
+  uint256 public maxWeiPurchasable = 5000000000000000000;
   mapping (address=>address) public whitelistedAddresses;
   mapping (address=>bool) public salesDonePerUser;
   address[] public whitelistedAddressesList;
@@ -52,7 +52,7 @@ contract DotPublicSale is Pausable {
 
         tokenPurchased = tokenPurchased.add(tokenCount);
         
-        require(tokenPurchased < tokenCap);
+        require(tokenPurchased <= tokenCap);
     
         contributors = contributors.add(1);
     
