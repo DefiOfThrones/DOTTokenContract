@@ -4,13 +4,10 @@ import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/Ownable.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/SafeMath.sol";
 
-
-
 /**
- * @title TokenVesting
+ * @title DotxVesting
  * @dev A token holder contract that can release its token balance gradually like a
- * typical vesting scheme, with a cliff and vesting period. Optionally revocable by the
- * owner.
+ * typical vesting scheme, with a cliff and vesting period.
  */
 contract DotxVesting is Ownable {
 
@@ -86,15 +83,15 @@ contract DotxVesting is Ownable {
     /**
      * @return the amount of the token released.
      */
-    function released(address token) public view returns (uint256) {
-        return _released[token];
+    function released() public view returns (uint256) {
+        return _released[tokenAddress];
     }
 
     /**
      * @notice Transfers vested tokens to beneficiary.
      */
     function release() public onlyOwner {
-        uint256 unreleased = _releasableAmount();
+        uint256 unreleased = releasableAmount();
 
         require(unreleased > 0, "TokenVesting: no tokens are due");
 
@@ -108,7 +105,7 @@ contract DotxVesting is Ownable {
     /**
      * @dev Calculates the amount that has already vested but hasn't been released yet.
      */
-    function _releasableAmount() private view returns (uint256) {
+    function releasableAmount() public view returns (uint256) {
         return vestedAmount().sub(_released[address(tokenAddress)]);
     }
 
@@ -127,5 +124,16 @@ contract DotxVesting is Ownable {
             return totalBalance.mul(block.timestamp.sub(_start)).div(_duration);
         }
     }
-
+    
+    function getRemainingSeconds() public view returns(uint256){
+        return _start.add(_duration).sub(block.timestamp);
+    }
+    
+    function getRemainingDays() public view returns(uint256){
+        return _start.add(_duration).sub(block.timestamp).div(86400);
+    }
+    
+    function getCurrentBalance() public view returns(uint256){
+        return dotxToken.balanceOf(address(this));
+    }
 }
