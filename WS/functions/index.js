@@ -24,7 +24,7 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
                 return request("https://api.coingecko.com/api/v3/simple/price?ids="+coin.id+"&vs_currencies="+tsym, { json: true }, (err, res, body) => {
                     if (err) { 
                         console.log(err); 
-                        response.status(500).end();
+                        return response.status(500).end();
                     }
                 
                     response.send(body[coin.id]);
