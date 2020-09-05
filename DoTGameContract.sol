@@ -188,7 +188,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         }
         
         //Check if user has enough DoTx to spend
-        uint256 userAmountSpend = getWarTicketPrice(currentWarIndex) * _numberOfTicket;
+        uint256 userAmountSpend = getWarTicketPrice(currentWarIndex).mul(_numberOfTicket);
         if(isOnChain){
             require(dotxToken.balanceOf(msg.sender) >= userAmountSpend, "Not enough DoTx in balance to buy ticket(s)");
         }
@@ -292,7 +292,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         wars[currentWarIndex].users[msg.sender].ticketsBought = 0;
         
         if(isOnChain){
-            dotxToken.transfer(msg.sender, reward + getUserDoTxInBalance(currentWarIndex));
+            dotxToken.transfer(msg.sender, reward.add(getUserDoTxInBalance(currentWarIndex)));
         }
     }
     
@@ -335,8 +335,8 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 sndHOpen = getSecondHouse().openPrice;
         uint256 sndHClose = getSecondHouse().closePrice;
         
-        uint256 firstHousePerf = ((fstHClose - fstHOpen) * selecteWinnerPrecision) / fstHOpen;
-        uint256 secondHousePerf = ((sndHClose - sndHOpen) * selecteWinnerPrecision) / sndHOpen;
+        uint256 firstHousePerf = ((fstHClose.sub(fstHOpen)).mul(selecteWinnerPrecision)).div(fstHOpen);
+        uint256 secondHousePerf = ((sndHClose.sub(sndHOpen)).mul(selecteWinnerPrecision)).div(sndHOpen);
         
         //Set winner house
         wars[currentWarIndex].winningHouse = firstHousePerf > secondHousePerf ? currentFirstHouseTicker : currentSecondHouseTicker;
@@ -614,7 +614,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      **/
     function isFirstDayForCurrentWar() view private returns(bool){
         //Update start time if failed
-        return (now - wars[currentWarIndex].startTime) < SECONDS_IN_DAYS;
+        return (now.sub(wars[currentWarIndex].startTime)) < SECONDS_IN_DAYS;
     }
     
     /**
@@ -638,12 +638,18 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         return wars[currentWarIndex].users[msg.sender];
     }
     
-    function checkIfHouseInCompetition(string memory _houseTicker) private returns(bool){
+    /**
+     * Check if the house passed in parameter is in the current war
+     **/
+    function checkIfHouseInCompetition(string memory _houseTicker) private view returns(bool){
         //Check if house exists in current war
         bytes32 houseTicker = stringToBytes32(_houseTicker);
         return wars[currentWarIndex].houses[houseTicker].houseTicker == houseTicker;
     }
     
+    /**
+     * Calculate the reward for the current user
+     **/
     function getCurrentReward(string memory _winningHouse) public view returns(uint256){
         bytes32 winningHouse = stringToBytes32(_winningHouse);
         //Losing house
@@ -652,15 +658,15 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 ticketPrice = getWarTicketPrice(currentWarIndex);
         
         //Total DoTx in house's balance
-        uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought * ticketPrice;
-        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought * ticketPrice;
+        uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought.mul(ticketPrice);
+        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice);
         
         uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex);
         
         uint256 precision = 10000;
-        uint256 percent = (dotxUserBalance * precision) / totalDoTxWinningHouse;
+        uint256 percent = (dotxUserBalance.mul(precision)).div(totalDoTxWinningHouse);
         //Reward for this user
-        uint256 reward = (totalDoTxLosingHouse * percent) / precision;
+        uint256 reward = (totalDoTxLosingHouse.mul(percent)).div(precision);
         
         return reward;
     }
