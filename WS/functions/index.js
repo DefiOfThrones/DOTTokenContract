@@ -26,7 +26,7 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
                         console.log(err); 
                         return response.status(500).end();
                     }
-                
+                    response.set('Access-Control-Allow-Origin', '*');
                     response.send(body[coin.id]);
                     response.status(200).end();
                 });
@@ -47,7 +47,7 @@ exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => 
             
             var circulationSupply = MAX_SUPPLY - doTxMarketingVested - doTxTeamLocked;
             
-            response.send("{\"DoTxCirculationSupply\" : "+circulationSupply+"}");
+            response.send("{\"DoTxCirculationSupply\" : "+parseInt(circulationSupply, 10)+"}");
             response.status(200).end();
         })
     })
