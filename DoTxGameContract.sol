@@ -354,6 +354,8 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * Elect the winner based on open prices & close prices
      **/
     function selectWinner() public onlyOwner onlyIfCurrentWarFinished onlyIfPricesFetched {
+
+	require(wars[currentWarIndex].winningHouse == 0, "Winner already elected");
         
         uint256 fstHOpen = getFirstHouse().openPrice;
         uint256 fstHClose = getFirstHouse().closePrice;
