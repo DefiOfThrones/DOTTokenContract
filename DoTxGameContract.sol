@@ -12,8 +12,9 @@ import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkCl
 contract DoTGameContract is ChainlinkClient, Ownable {
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
     bool isOnChain = false;
-    uint256 constant public MAX_INT_NUMBER = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000;
     uint256 constant public SECONDS_IN_DAYS = 86400;
+    address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
 
     //War struct, for each war a War variable will be created 
     struct War {
@@ -26,15 +27,20 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 warFees;
         uint256 warFeesPercent;
         int256 multiplicator;
+        bytes32 firstHouseTicker;
+        bytes32 secondHouseTicker;
         mapping(address => User) users;
         mapping(bytes32 => House)  houses;
     }
     //House struct, each war contains an map of 2 houses (could be more ine the future)
     struct House {
         bytes32 houseTicker;
+        bytes32 houseId;
         uint256 openPrice;
         uint256 closePrice;
         uint256 ticketsBought;
+        uint256 ticketsBoughtAfterBurn;
+        uint256 totalUsers;
     }
     //User struct, each war contains a map of users
     //Each user can pledge allegiance for a house, buy tickets and switch house by paying fees
@@ -70,6 +76,10 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     uint256 public totalFees;
     //Precision for the select winner calculation
     uint256 public selecteWinnerPrecision = 10000;
+    
+    //BURN VARS
+    //% of DoTx burn from losing house
+    uint256 public burnPercentage = 5;
     
     //EVENTS
     event WarStarted();
@@ -108,17 +118,19 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     function mockData() private{
         currentWarIndex++;
         
-        string memory firstHouseT = "ETH";
-        string memory secondHouseT = "BTC";
+        string memory firstHouseT = "COMP";
+        string memory firstHouseId = "compound-governance-token";
+        string memory secondHouseT = "TEND";
+        string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(1599217802, 99999999999999999, 1000000000000000000, 1000, 0, 0, 0, 1, 10000);
-        wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), 0, 0, 0);
-        wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), 0, 0, 0);
+        wars[currentWarIndex] = War(now, 604800, 10000000000000000000, 3, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
+        wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
         
         currentFirstHouseTicker = stringToBytes32(firstHouseT);
         currentSecondHouseTicker = stringToBytes32(secondHouseT);
         
-        wars[currentWarIndex].winningHouse = stringToBytes32("ETH");//DELETE
+        //wars[currentWarIndex].winningHouse = stringToBytes32("ETH");//DELETE
     }
     
     /**
@@ -153,19 +165,19 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * _warFeesPercent How many % fees it will cost to user to switch house 
      * _multiplicator Precision of the prices receive from WS
      **/
-    function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, uint256 _duration, uint256 _ticketPrice, 
-    uint256 _purchasePeriodInDays, uint256 _warFeesPercent, int256 _multiplicator) 
+    function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, string memory _firstHouseId, string memory _secondHouseId, 
+    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriodInDays, uint256 _warFeesPercent, int256 _multiplicator) 
     public onlyOwner onlyIfCurrentWarFinished returns(bool) {
         currentWarIndex++;
-        //Create war        
-        wars[currentWarIndex] = War(now, _duration, _ticketPrice, _purchasePeriodInDays, 0, 0, 0, _warFeesPercent, _multiplicator);
+        //Create war  
+        currentFirstHouseTicker = stringToBytes32(_firstHouseTicker);
+        currentSecondHouseTicker = stringToBytes32(_secondHouseTicker);
+        wars[currentWarIndex] = War(now, _duration, _ticketPrice, _purchasePeriodInDays, 0, 0, 0, _warFeesPercent, _multiplicator, currentFirstHouseTicker, currentSecondHouseTicker);
         
         //Create first house
-        currentFirstHouseTicker = stringToBytes32(_firstHouseTicker);
-        wars[currentWarIndex].houses[currentFirstHouseTicker] = House(currentFirstHouseTicker, 0, 0, 0);
+        wars[currentWarIndex].houses[currentFirstHouseTicker] = House(currentFirstHouseTicker, stringToBytes32(_firstHouseId), 0, 0, 0, 0, 0);
         //Create second house
-        currentSecondHouseTicker = stringToBytes32(_secondHouseTicker);
-        wars[currentWarIndex].houses[currentSecondHouseTicker] = House(currentSecondHouseTicker, 0, 0, 0);
+        wars[currentWarIndex].houses[currentSecondHouseTicker] = House(currentSecondHouseTicker, stringToBytes32(_secondHouseId), 0, 0, 0, 0, 0);
         
         emit WarStarted();
         
@@ -183,8 +195,8 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     function buyTickets(string memory _houseTicker, uint _numberOfTicket) public onlyIfTicketsPurchasable returns(bool) {
         War storage war = wars[currentWarIndex];
         if(isOnChain){
-            //Check if user has approve DoTx contract with MAX_INT_NUMBER
-            require(dotxToken.allowance(msg.sender, address(this)) == MAX_INT_NUMBER, "Please approve the max amount");
+            //Check if user has approve GAME CONTRACT > MIN_ALLOWANCE
+            require(dotxToken.allowance(msg.sender, address(this)) > MIN_ALLOWANCE, "Please approve at least 1000000000000000000000000000 Dotx to spend");
         }
         
         //Check if user has enough DoTx to spend
@@ -201,12 +213,17 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         bytes32 userHouseTicker = getCurrentUser().houseTicker;
         require(userHouseTicker == houseTicker || userHouseTicker == 0, "You can't buy tickets for the other house - You can switch if you want");
         
+        //Count unique user
+        war.houses[houseTicker].totalUsers = war.users[msg.sender].ticketsBought == 0 ? war.houses[houseTicker].totalUsers + 1 : war.houses[houseTicker].totalUsers;
+        
         //Update user tickets
-        wars[currentWarIndex].users[msg.sender].houseTicker = houseTicker;
-        wars[currentWarIndex].users[msg.sender].ticketsBought = getCurrentUser().ticketsBought.add(_numberOfTicket);
+        war.users[msg.sender].houseTicker = houseTicker;
+        war.users[msg.sender].ticketsBought = getCurrentUser().ticketsBought.add(_numberOfTicket);
         
         //Increase tickets bought for the house
         war.houses[houseTicker].ticketsBought = war.houses[houseTicker].ticketsBought.add(_numberOfTicket);
+        //Calculate tickets remaining after burn
+        war.houses[houseTicker].ticketsBoughtAfterBurn = war.houses[houseTicker].ticketsBought.sub(calculateBurn(war.houses[houseTicker].ticketsBought));
         
         //Increase total tickets bought
         war.ticketsBought = war.ticketsBought.add(_numberOfTicket);
@@ -229,35 +246,46 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * _toHouseTicker the house user wants to join
      **/
     function switchHouse(string memory _fromHouseTicker, string memory _toHouseTicker) public onlyIfTicketsPurchasable returns(bool) {
+        War storage war = wars[currentWarIndex];
         //Check if houses are in competition
         require(checkIfHouseInCompetition(_fromHouseTicker), "House not in competition");
         require(checkIfHouseInCompetition(_toHouseTicker), "House not in competition");
         
+        bytes32 fromHouseTicker = stringToBytes32(_fromHouseTicker);
+        bytes32 toHouseTicker = stringToBytes32(_toHouseTicker);
+        
         //Check if user belongs to _fromHouse 
-        require(getCurrentUser().houseTicker == stringToBytes32(_fromHouseTicker), "User doesn't belong to fromHouse");
+        require(getCurrentUser().houseTicker == fromHouseTicker, "User doesn't belong to fromHouse");
         
         //Requires at least one ticket bought
         uint256 ticketsBoughtByUser = getCurrentUser().ticketsBought;
         require(ticketsBoughtByUser > 0, "User can't switch without tickets");
         
         //Switch house for user
-        wars[currentWarIndex].users[msg.sender].houseTicker = stringToBytes32(_toHouseTicker);
+        war.users[msg.sender].houseTicker = fromHouseTicker;
         
         //Update fromHouse tickets
         uint256 fromHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _fromHouseTicker);
-        wars[currentWarIndex].houses[stringToBytes32(_fromHouseTicker)].ticketsBought = fromHouseTickets.sub(ticketsBoughtByUser);
+        war.houses[fromHouseTicker].ticketsBought = fromHouseTickets.sub(ticketsBoughtByUser);
+        uint256 ticketsBoughtUpTodate = war.houses[fromHouseTicker].ticketsBought;
+        war.houses[fromHouseTicker].ticketsBoughtAfterBurn = ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
         
         //Update toHouse tickets
         uint256 toHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _toHouseTicker);
-        wars[currentWarIndex].houses[stringToBytes32(_toHouseTicker)].ticketsBought = toHouseTickets.add(ticketsBoughtByUser);
+        war.houses[toHouseTicker].ticketsBought = toHouseTickets.add(ticketsBoughtByUser);
+        ticketsBoughtUpTodate = war.houses[toHouseTicker].ticketsBought;
+        war.houses[toHouseTicker].ticketsBoughtAfterBurn = ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
         
+        //Update unique users
+        war.houses[fromHouseTicker].totalUsers = war.houses[fromHouseTicker].totalUsers - 1;
+        war.houses[toHouseTicker].totalUsers = war.houses[toHouseTicker].totalUsers + 1;
         
         //Update user fees
-        uint256 feesToBePaid = getFeesForSwitchHouse();
+        uint256 feesToBePaid = getFeesForSwitchHouse(msg.sender);
         //Update fees fot user
-        wars[currentWarIndex].users[msg.sender].fees = getCurrentUser().fees.add(feesToBePaid);
+        war.users[msg.sender].fees = getCurrentUser().fees.add(feesToBePaid);
         //Update war fees
-        wars[currentWarIndex].warFees = wars[currentWarIndex].warFees.add(feesToBePaid);
+        war.warFees = war.warFees.add(feesToBePaid);
         //Update total fees
         totalFees = totalFees.add(feesToBePaid);
         
@@ -286,19 +314,16 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         
         
         //DoTx in user balance
-        uint256 reward = getCurrentReward(bytes32ToString(winningHouse));
+        uint256 reward = getCurrentReward(bytes32ToString(winningHouse), msg.sender);
         
         //Set ticketsBought to 0
         wars[currentWarIndex].users[msg.sender].ticketsBought = 0;
         
         if(isOnChain){
-            dotxToken.transfer(msg.sender, reward.add(getUserDoTxInBalance(currentWarIndex)));
+            dotxToken.transfer(msg.sender, reward.add(getUserDoTxInBalance(currentWarIndex, msg.sender)));
         }
     }
-    
-    function testClaim() public {
-        
-    }
+
     
     /*****************************
             PRICES METHODS
@@ -326,7 +351,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     }
     
     /**
-     * Elect the winner base on open prices & close prices
+     * Elect the winner based on open prices & close prices
      **/
     function selectWinner() public onlyOwner onlyIfCurrentWarFinished onlyIfPricesFetched {
         
@@ -340,7 +365,18 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         
         //Set winner house
         wars[currentWarIndex].winningHouse = firstHousePerf > secondHousePerf ? currentFirstHouseTicker : currentSecondHouseTicker;
+        bytes32 losingHouse = firstHousePerf > secondHousePerf ? currentSecondHouseTicker : currentFirstHouseTicker;
+        
+        /*
+        BURN X% OF LOSING HOUSE'S DOTX
+        */
+        uint256 losingHouseTickets = wars[currentWarIndex].houses[losingHouse].ticketsBought;
+        uint256 doTxLosingHouse = losingHouseTickets.mul(getWarTicketPrice(currentWarIndex));
+
+        //Calculate tickets burned
+        dotxToken.transfer(BURN_ADDRESS, calculateBurn(doTxLosingHouse));
     }
+
     
     /*******************************
             CHAINLINK METHODS
@@ -357,7 +393,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(JOBID), address(this), _selector);
 
         //Call Coingecko from DeFi Of Thrones API (code available in official git repo under WS folder)
-        req.add("get", append("https://us-central1-defiofthrones.cloudfunctions.net/getCurrentPrice?fsym=", _fsym, "&tsym=usd", "", ""));
+        req.add("get", append("https://us-central1-defiofthrones.cloudfunctions.net/getCurrentPrice?fsym=", _fsym, "&tsym=usd", "&fsymId=", getHouseId(currentWarIndex, _fsym)));
         // "path" to find the price in the json received
         req.add("path", "usd");
         // Multiply the price by multiplicator because Solidty can only manage Integer type
@@ -480,15 +516,15 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     /**
      * Get the the number of tickets bought by the user -> for a war specified by _warIndex
      **/
-    function getUserTickets(uint256 _warIndex) public view returns(uint256){
-        return wars[_warIndex].users[msg.sender].ticketsBought;
+    function getUserTickets(uint256 _warIndex, address userAddress) public view returns(uint256){
+        return wars[_warIndex].users[userAddress].ticketsBought;
     }
     
     /**
      * Get user (ticketsBought * ticketPrice) - user fees
      **/
-    function getUserDoTxInBalance(uint256 _warIndex) public view returns(uint256){
-        return getUserTickets(_warIndex).mul(getWarTicketPrice(_warIndex));
+    function getUserDoTxInBalance(uint256 _warIndex, address userAddress) public view returns(uint256){
+        return getUserTickets(_warIndex, userAddress).mul(getWarTicketPrice(_warIndex));
     }
     
      /**
@@ -505,8 +541,30 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         return wars[_warIndex].users[msg.sender].fees;
     }
     
-    function getFeesForSwitchHouse() public returns(uint256){
-        return (getUserDoTxInBalance(currentWarIndex).mul(wars[currentWarIndex].warFeesPercent)).div(100);
+    
+    function getFeesForSwitchHouse(address userAddress) public view returns(uint256){
+        return (getUserDoTxInBalance(currentWarIndex, userAddress).mul(wars[currentWarIndex].warFeesPercent)).div(100);
+    }
+    
+    /**
+     * Returns house id specified by _warIndex
+     **/
+    function getHouseId(uint256 _warIndex, string memory houseTicker) public view returns(string memory){
+        return bytes32ToString(wars[_warIndex].houses[stringToBytes32(houseTicker)].houseId);
+    }
+    
+    /**
+     * Returns the current user
+     **/
+    function getUser(uint256 _warIndex, address userAddress) public view returns(User memory){
+        return wars[_warIndex].users[userAddress];
+    }
+    
+    /**
+     * Return house forrent specific war
+     **/
+    function getHouse(uint256 _warIndex, string memory houseTicker) public view returns(House memory){
+        return wars[_warIndex].houses[stringToBytes32(houseTicker)];
     }
     
     /*****************************
@@ -539,6 +597,13 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      **/
     function setOraclePaymentAmount(uint256 _linkAmount) public onlyOwner{
         ORACLE_PAYMENT = _linkAmount;
+    }
+    
+    /**
+     * Set burn % of the losing house's DoTx to burn
+     **/
+    function setBurnPercentage(uint256 _burnPercentage) public onlyOwner{
+        burnPercentage = _burnPercentage;
     }
 
     /*****************************
@@ -650,7 +715,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     /**
      * Calculate the reward for the current user
      **/
-    function getCurrentReward(string memory _winningHouse) public view returns(uint256){
+    function getCurrentReward(string memory _winningHouse, address userAddress) public view returns(uint256){
         bytes32 winningHouse = stringToBytes32(_winningHouse);
         //Losing house
         bytes32 losingHouse = currentFirstHouseTicker == winningHouse ? currentSecondHouseTicker : currentFirstHouseTicker;
@@ -659,9 +724,9 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         
         //Total DoTx in house's balance
         uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought.mul(ticketPrice);
-        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice);
+        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBoughtAfterBurn.mul(ticketPrice);
         
-        uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex);
+        uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex, userAddress);
         
         uint256 precision = 10000;
         uint256 percent = (dotxUserBalance.mul(precision)).div(totalDoTxWinningHouse);
@@ -669,5 +734,12 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 reward = (totalDoTxLosingHouse.mul(percent)).div(precision);
         
         return reward;
+    }
+    
+    /*
+    * CALCULATE BURN
+    */
+    function calculateBurn(uint256 amount) public view returns(uint256){
+        return amount.mul(selecteWinnerPrecision).mul(burnPercentage).div(100).div(selecteWinnerPrecision);
     }
 }
