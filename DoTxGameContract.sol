@@ -11,7 +11,7 @@ import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkCl
  */
 contract DoTGameContract is ChainlinkClient, Ownable {
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
-    bool isOnChain = false;
+    bool isOnChain = true;
     uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000;
     uint256 constant public SECONDS_IN_DAYS = 86400;
     address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
@@ -39,7 +39,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 openPrice;
         uint256 closePrice;
         uint256 ticketsBought;
-        uint256 ticketsBoughtAfterBurn;
+        uint256 dotxToBurn;
         uint256 totalUsers;
     }
     //User struct, each war contains a map of users
@@ -48,6 +48,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         bytes32 houseTicker;
         uint256 ticketsBought;
         uint256 fees;
+        bool rewardClaimed;
     }
     
     //DOTX Contract Address
@@ -123,7 +124,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         string memory secondHouseT = "TEND";
         string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(now, 604800, 10000000000000000000, 3, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex] = War(now, 300, 10000000000000000000, 1, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
         wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
         wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
         
@@ -223,7 +224,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         //Increase tickets bought for the house
         war.houses[houseTicker].ticketsBought = war.houses[houseTicker].ticketsBought.add(_numberOfTicket);
         //Calculate tickets remaining after burn
-        war.houses[houseTicker].ticketsBoughtAfterBurn = war.houses[houseTicker].ticketsBought.sub(calculateBurn(war.houses[houseTicker].ticketsBought));
+        war.houses[houseTicker].dotxToBurn = calculateBurn(war.houses[houseTicker].ticketsBought * getWarTicketPrice(currentWarIndex));//war.houses[houseTicker].ticketsBought.sub(calculateBurn(war.houses[houseTicker].ticketsBought));
         
         //Increase total tickets bought
         war.ticketsBought = war.ticketsBought.add(_numberOfTicket);
@@ -262,19 +263,19 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         require(ticketsBoughtByUser > 0, "User can't switch without tickets");
         
         //Switch house for user
-        war.users[msg.sender].houseTicker = fromHouseTicker;
+        war.users[msg.sender].houseTicker = toHouseTicker;
         
         //Update fromHouse tickets
         uint256 fromHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _fromHouseTicker);
         war.houses[fromHouseTicker].ticketsBought = fromHouseTickets.sub(ticketsBoughtByUser);
         uint256 ticketsBoughtUpTodate = war.houses[fromHouseTicker].ticketsBought;
-        war.houses[fromHouseTicker].ticketsBoughtAfterBurn = ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
+        war.houses[fromHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex)); //ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
         
         //Update toHouse tickets
         uint256 toHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _toHouseTicker);
         war.houses[toHouseTicker].ticketsBought = toHouseTickets.add(ticketsBoughtByUser);
         ticketsBoughtUpTodate = war.houses[toHouseTicker].ticketsBought;
-        war.houses[toHouseTicker].ticketsBoughtAfterBurn = ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
+        war.houses[toHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex)); //ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
         
         //Update unique users
         war.houses[fromHouseTicker].totalUsers = war.houses[fromHouseTicker].totalUsers - 1;
@@ -302,6 +303,9 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * Parameters :
      **/
     function claimRewardAndTickets() public onlyIfCurrentWarFinished returns(bool) {
+        //Only claim reward one times
+        require(wars[currentWarIndex].users[msg.sender].rewardClaimed == false, "You already claimed your reward");
+        
         //A winner house must be elected
         require(wars[currentWarIndex].winningHouse != 0, "Winner not elected");
         
@@ -312,16 +316,15 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         bytes32 winningHouse = wars[currentWarIndex].winningHouse;
         require(getCurrentUser().houseTicker == winningHouse, "User doesn't belong to winning house");
         
-        
         //DoTx in user balance
         uint256 reward = getCurrentReward(bytes32ToString(winningHouse), msg.sender);
-        
-        //Set ticketsBought to 0
-        wars[currentWarIndex].users[msg.sender].ticketsBought = 0;
         
         if(isOnChain){
             dotxToken.transfer(msg.sender, reward.add(getUserDoTxInBalance(currentWarIndex, msg.sender)));
         }
+        
+        //Set rewardClaimed to true
+        wars[currentWarIndex].users[msg.sender].rewardClaimed = true;
     }
 
     
@@ -354,8 +357,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * Elect the winner based on open prices & close prices
      **/
     function selectWinner() public onlyOwner onlyIfCurrentWarFinished onlyIfPricesFetched {
-
-	require(wars[currentWarIndex].winningHouse == 0, "Winner already elected");
+        require(wars[currentWarIndex].winningHouse == 0, "Winner already selected");
         
         uint256 fstHOpen = getFirstHouse().openPrice;
         uint256 fstHClose = getFirstHouse().closePrice;
@@ -372,11 +374,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         /*
         BURN X% OF LOSING HOUSE'S DOTX
         */
-        uint256 losingHouseTickets = wars[currentWarIndex].houses[losingHouse].ticketsBought;
-        uint256 doTxLosingHouse = losingHouseTickets.mul(getWarTicketPrice(currentWarIndex));
-
-        //Calculate tickets burned
-        dotxToken.transfer(BURN_ADDRESS, calculateBurn(doTxLosingHouse));
+        dotxToken.transfer(BURN_ADDRESS, wars[currentWarIndex].houses[losingHouse].dotxToBurn);
     }
 
     
@@ -726,7 +724,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         
         //Total DoTx in house's balance
         uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought.mul(ticketPrice);
-        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBoughtAfterBurn.mul(ticketPrice);
+        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice) - wars[currentWarIndex].houses[losingHouse].dotxToBurn;
         
         uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex, userAddress);
         
