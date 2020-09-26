@@ -224,7 +224,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         //Increase tickets bought for the house
         war.houses[houseTicker].ticketsBought = war.houses[houseTicker].ticketsBought.add(_numberOfTicket);
         //Calculate tickets remaining after burn
-        war.houses[houseTicker].dotxToBurn = calculateBurn(war.houses[houseTicker].ticketsBought * getWarTicketPrice(currentWarIndex));//war.houses[houseTicker].ticketsBought.sub(calculateBurn(war.houses[houseTicker].ticketsBought));
+        war.houses[houseTicker].dotxToBurn = calculateBurn(war.houses[houseTicker].ticketsBought * getWarTicketPrice(currentWarIndex));
         
         //Increase total tickets bought
         war.ticketsBought = war.ticketsBought.add(_numberOfTicket);
@@ -269,13 +269,13 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 fromHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _fromHouseTicker);
         war.houses[fromHouseTicker].ticketsBought = fromHouseTickets.sub(ticketsBoughtByUser);
         uint256 ticketsBoughtUpTodate = war.houses[fromHouseTicker].ticketsBought;
-        war.houses[fromHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex)); //ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
+        war.houses[fromHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex));
         
         //Update toHouse tickets
         uint256 toHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _toHouseTicker);
         war.houses[toHouseTicker].ticketsBought = toHouseTickets.add(ticketsBoughtByUser);
         ticketsBoughtUpTodate = war.houses[toHouseTicker].ticketsBought;
-        war.houses[toHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex)); //ticketsBoughtUpTodate.sub(calculateBurn(ticketsBoughtUpTodate));
+        war.houses[toHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex));
         
         //Update unique users
         war.houses[fromHouseTicker].totalUsers = war.houses[fromHouseTicker].totalUsers - 1;
@@ -724,7 +724,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         
         //Total DoTx in house's balance
         uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought.mul(ticketPrice);
-        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice) - wars[currentWarIndex].houses[losingHouse].dotxToBurn;
+        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice).sub(wars[currentWarIndex].houses[losingHouse].dotxToBurn);
         
         uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex, userAddress);
         
