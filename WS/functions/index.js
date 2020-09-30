@@ -43,13 +43,16 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
 exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => {
     myContract.methods.balanceOf(MARKETING_CONTRACT_ADDRESS).call().then(function(marketingContratBalance) {
         myContract.methods.balanceOf(TEAM_CONTRACT_ADDRESS).call().then(function(teamContratBalance) {
-            var doTxMarketingVested = EthHelper.weiToEth(BigInt(marketingContratBalance).toString())
-            var doTxTeamLocked = EthHelper.weiToEth(BigInt(teamContratBalance).toString())
-            
-            var circulationSupply = MAX_SUPPLY - doTxMarketingVested - doTxTeamLocked;
-            
-            response.send("{\"DoTxCirculationSupply\" : "+parseInt(circulationSupply, 10)+"}");
-            response.status(200).end();
+            myContract.methods.balanceOf(VITALIK_ADDRESS).call().then(function(vitalikBalance) {
+                var doTxMarketingVested = EthHelper.weiToEth(BigInt(marketingContratBalance).toString())
+                var doTxTeamLocked = EthHelper.weiToEth(BigInt(teamContratBalance).toString())
+                var vitalikBurn = EthHelper.weiToEth(BigInt(vitalikBalance).toString())
+                
+                var circulationSupply = MAX_SUPPLY - doTxMarketingVested - doTxTeamLocked - vitalikBurn;
+                
+                response.send("{\"DoTxCirculationSupply\" : "+parseInt(circulationSupply, 10)+"}");
+                response.status(200).end();
+            })
         })
     })
 });
