@@ -7,7 +7,7 @@ import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkCl
 
 /**
  * @title DeFi Of Thrones Game Contract
- * @author DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
+ * @author Maxime Reynders - DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
 contract DoTxGameContract is ChainlinkClient, Ownable {
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
