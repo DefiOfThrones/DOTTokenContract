@@ -9,7 +9,7 @@ import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkCl
  * @title DeFi Of Thrones Game Contract
  * @author DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
-contract DoTGameContract is ChainlinkClient, Ownable {
+contract DoTxGameContract is ChainlinkClient, Ownable {
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
     bool isOnChain = true;
     uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000;
@@ -21,7 +21,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         uint256 startTime;
         uint256 duration;
         uint256 ticketPrice;
-        uint256 purchasePeriodInDays;//TODO Change for seconds
+        uint256 purchasePeriod;
         bytes32 winningHouse;
         uint256 ticketsBought;
         uint256 warFees;
@@ -76,7 +76,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     //Total fees paid by users
     uint256 public totalFees;
     //Precision for the select winner calculation
-    uint256 public selecteWinnerPrecision = 10000;
+    uint256 public selecteWinnerPrecision = 100000;
     
     //BURN VARS
     //% of DoTx burn from losing house
@@ -100,7 +100,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     }
     
     modifier onlyIfTicketsPurchasable() {
-        require((now.sub(wars[currentWarIndex].startTime) / SECONDS_IN_DAYS) < wars[currentWarIndex].purchasePeriodInDays,
+        require(now.sub(wars[currentWarIndex].startTime) < wars[currentWarIndex].purchasePeriod,
         "Purchase tickets period ended");
         _;
     }
@@ -124,7 +124,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
         string memory secondHouseT = "TEND";
         string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(now, 300, 10000000000000000000, 1, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex] = War(now, 200, 10000000000000000000, 150, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
         wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
         wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
         
@@ -162,18 +162,18 @@ contract DoTGameContract is ChainlinkClient, Ownable {
      * _secondHouseTicker Second house ticker 
      * _duration Duration of the war in seconds 
      * _ticketPrice Ticket price : Number of DoTx needed to buy a ticket (in wei precision)
-     * _purchasePeriodInDays Number of days where the users can buy tickets from the starting date
+     * purchasePeriod Number of seconds where the users can buy tickets from the starting date
      * _warFeesPercent How many % fees it will cost to user to switch house 
      * _multiplicator Precision of the prices receive from WS
      **/
     function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, string memory _firstHouseId, string memory _secondHouseId, 
-    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriodInDays, uint256 _warFeesPercent, int256 _multiplicator) 
+    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, int256 _multiplicator) 
     public onlyOwner onlyIfCurrentWarFinished returns(bool) {
         currentWarIndex++;
         //Create war  
         currentFirstHouseTicker = stringToBytes32(_firstHouseTicker);
         currentSecondHouseTicker = stringToBytes32(_secondHouseTicker);
-        wars[currentWarIndex] = War(now, _duration, _ticketPrice, _purchasePeriodInDays, 0, 0, 0, _warFeesPercent, _multiplicator, currentFirstHouseTicker, currentSecondHouseTicker);
+        wars[currentWarIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, 0, 0, _warFeesPercent, _multiplicator, currentFirstHouseTicker, currentSecondHouseTicker);
         
         //Create first house
         wars[currentWarIndex].houses[currentFirstHouseTicker] = House(currentFirstHouseTicker, stringToBytes32(_firstHouseId), 0, 0, 0, 0, 0);
@@ -188,7 +188,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     }
     
      /**
-     * Buy ticket(s) for the current war - only if tickets are purchasable -> purchasePeriodInDays
+     * Buy ticket(s) for the current war - only if tickets are purchasable -> purchasePeriod
      * Parameters :
      * _houseTicker House ticker 
      * _numberOfTicket The number of tickets the user wants to buy
@@ -241,7 +241,7 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     }
     
     /**
-     * Switch house for the user - only if tickets are purchasable -> purchasePeriodInDays
+     * Switch house for the user - only if tickets are purchasable -> purchasePeriod
      * Parameters :
      * _fromHouseTicker Current house user pledged allegiance 
      * _toHouseTicker the house user wants to join
@@ -359,13 +359,14 @@ contract DoTGameContract is ChainlinkClient, Ownable {
     function selectWinner() public onlyOwner onlyIfCurrentWarFinished onlyIfPricesFetched {
         require(wars[currentWarIndex].winningHouse == 0, "Winner already selected");
         
-        uint256 fstHOpen = getFirstHouse().openPrice;
-        uint256 fstHClose = getFirstHouse().closePrice;
-        uint256 sndHOpen = getSecondHouse().openPrice;
-        uint256 sndHClose = getSecondHouse().closePrice;
+        int256 fstHOpen = int256(getFirstHouse().openPrice);
+        int256 fstHClose = int256(getFirstHouse().closePrice);
+        int256 sndHOpen = int256(getSecondHouse().openPrice);
+        int256 sndHClose = int256(getSecondHouse().closePrice);
+        int256 precision = int256(selecteWinnerPrecision);
         
-        uint256 firstHousePerf = ((fstHClose.sub(fstHOpen)).mul(selecteWinnerPrecision)).div(fstHOpen);
-        uint256 secondHousePerf = ((sndHClose.sub(sndHOpen)).mul(selecteWinnerPrecision)).div(sndHOpen);
+        int256 firstHousePerf = ((fstHClose - (fstHOpen)) * precision) / fstHOpen;
+        int256 secondHousePerf = ((sndHClose - (sndHOpen)) * precision) / sndHOpen;
         
         //Set winner house
         wars[currentWarIndex].winningHouse = firstHousePerf > secondHousePerf ? currentFirstHouseTicker : currentSecondHouseTicker;
