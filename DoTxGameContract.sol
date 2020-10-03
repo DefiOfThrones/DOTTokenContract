@@ -1,15 +1,83 @@
 pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/Ownable.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/IDotTokenContract.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
 import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkClient.sol";
+
+interface IDoTxLib{
+    function queryChainLinkPrice(string calldata _fsym, string calldata _fsymId, int256 _multiplicator, bytes4 _selector) external;
+    function fetchFirstDayPrices(string calldata firstHouseTicker, string calldata secondHouseTicker, string calldata firstHouseId, string calldata secondHouseId, int256 multiplicator) external;
+    function fetchLastDayPrices(string calldata firstHouseTicker, string calldata currentSecondHouseTicker, string calldata firstHouseId, string calldata secondHouseId, int256 multiplicator) external;
+    function setDoTxGame(address gameAddress) external;
+    function stringToBytes32(string calldata source) external pure returns (bytes32 result);
+    function bytes32ToString(bytes32 x) external pure returns (string memory);
+    function append(string calldata a, string calldata b, string calldata c, string calldata d, string calldata e) external pure returns (string memory);
+}
+
+contract Context {
+    constructor () internal { }
+
+    function _msgSender() internal view virtual returns (address payable) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes memory) {
+        this; 
+        return msg.data;
+    }
+}
+
+contract Ownable is Context {
+    address private _owner;
+    address public dotxLibAddress;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    constructor () internal {
+        address msgSender = _msgSender();
+        _owner = msgSender;
+        emit OwnershipTransferred(address(0), msgSender);
+    }
+
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    modifier onlyOwner() {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+    
+    modifier onlyOwnerOrDoTxLib() {
+        require(_owner == _msgSender() || dotxLibAddress == _msgSender(), "Ownable: caller is not the owner or the lib");
+        _;
+    }
+    
+    modifier onlyDoTxLib() {
+        require(dotxLibAddress == _msgSender(), "Ownable: caller is not the owner or the lib");
+        _;
+    }
+
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
 
 /**
  * @title DeFi Of Thrones Game Contract
  * @author Maxime Reynders - DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
-contract DoTxGameContract is ChainlinkClient, Ownable {
+contract DoTxGameContract is Ownable {
+    using SafeMath for uint256;
+    
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
     bool isOnChain = true;
     uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000;
@@ -53,6 +121,8 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
     
     //DOTX Contract Address
     IDotTokenContract private dotxToken;
+    //DOTX Game lib
+    IDoTxLib private dotxLib;
     
     //Array of Wars 
     mapping(uint256 => War) public wars;
@@ -124,31 +194,33 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
         string memory secondHouseT = "TEND";
         string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(now, 200, 10000000000000000000, 150, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex] = War(now, 1, 10000000000000000000, 1, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
         wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
         wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
         
         currentFirstHouseTicker = stringToBytes32(firstHouseT);
         currentSecondHouseTicker = stringToBytes32(secondHouseT);
-        
-        //wars[currentWarIndex].winningHouse = stringToBytes32("ETH");//DELETE
     }
     
     /**
      * Game contract constructor
      * Just pass the DoTx contract address in parameter
      **/
-    constructor(address dotxTokenAddress) public {
-        if(isOnChain){
-            //Setup Chainlink address for the network
-            setPublicChainlinkToken();
-        }
-        
+    constructor(address dotxTokenAddress, address dotxLibAddr) public {
         //Implement DoTx contract interface by providing address
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
+        setDoTxLib(dotxLibAddr);
+        
         //Delete for production
         mockData();
+    }
+    
+    function setDoTxLib(address dotxLibAddr) public onlyOwner {
+        //DOTX lib mainly uses for Chainlink
+        dotxLibAddress = dotxLibAddr;
+        dotxLib = IDoTxLib(dotxLibAddress);
+        dotxLib.setDoTxGame(address(this));
     }
     
     /**************************
@@ -339,8 +411,10 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
         require(isFirstDayForCurrentWar(), "Impossible to get first day prices after the first day has passed");
         require(getFirstHouse().openPrice == 0 && getSecondHouse().openPrice == 0, "Open prices already fetched");
         
-        queryChainLinkPrice(bytes32ToString(currentFirstHouseTicker), this.firstHouseOpen.selector);
-        queryChainLinkPrice(bytes32ToString(currentSecondHouseTicker), this.secondHouseOpen.selector);
+        string memory firstHouse = bytes32ToString(currentFirstHouseTicker);
+        string memory secondHouse = bytes32ToString(currentSecondHouseTicker);
+        
+        dotxLib.fetchFirstDayPrices(firstHouse, secondHouse, getHouseId(currentWarIndex, firstHouse), getHouseId(currentWarIndex, secondHouse), wars[currentWarIndex].multiplicator);
     }
 
     /**
@@ -349,8 +423,10 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
     function fetchLastDayPrices() public onlyOwner onlyIfCurrentWarFinished {
         require(getFirstHouse().closePrice == 0 && getSecondHouse().closePrice == 0, "Close prices already fetched");
         
-        queryChainLinkPrice(bytes32ToString(currentFirstHouseTicker), this.firstHouseClose.selector);
-        queryChainLinkPrice(bytes32ToString(currentSecondHouseTicker), this.secondHouseClose.selector);
+        string memory firstHouse = bytes32ToString(currentFirstHouseTicker);
+        string memory secondHouse = bytes32ToString(currentSecondHouseTicker);
+        
+        dotxLib.fetchLastDayPrices(firstHouse, secondHouse, getHouseId(currentWarIndex, firstHouse), getHouseId(currentWarIndex, secondHouse), wars[currentWarIndex].multiplicator);
     }
     
     /**
@@ -383,50 +459,31 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
             CHAINLINK METHODS
     ********************************/
     
-    // 
-    /**
-     * Creates a Chainlink request with the uint256 multiplier job to retrieve a price for a coin
-     * _fsym from symbol
-     * _selector handler method called by Chainlink Oracle
-     **/
-    function queryChainLinkPrice(string memory _fsym, bytes4 _selector) public onlyOwner{
-        // newRequest takes a JobID, a callback address, and callback function as input
-        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(JOBID), address(this), _selector);
-
-        //Call Coingecko from DeFi Of Thrones API (code available in official git repo under WS folder)
-        req.add("get", append("https://us-central1-defiofthrones.cloudfunctions.net/getCurrentPrice?fsym=", _fsym, "&tsym=usd", "&fsymId=", getHouseId(currentWarIndex, _fsym)));
-        // "path" to find the price in the json received
-        req.add("path", "usd");
-        // Multiply the price by multiplicator because Solidty can only manage Integer type
-        req.addInt("times", wars[currentWarIndex].multiplicator);
-        // Sends the request with the amount of payment specified to the oracle
-        sendChainlinkRequestTo(ORACLE_ADDRESS, req, ORACLE_PAYMENT);
-    }
     /**
      * Handler method called by Chainlink for the first house open price 
      **/
-    function firstHouseOpen(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
+    function firstHouseOpen(uint256 _price) external onlyDoTxLib {
         wars[currentWarIndex].houses[currentFirstHouseTicker].openPrice = _price;
         openPriceEvent();
     }
     /**
      * Handler method called by Chainlink for the second house open price 
      **/
-    function secondHouseOpen(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
+    function secondHouseOpen(uint256 _price) external onlyDoTxLib {
         wars[currentWarIndex].houses[currentSecondHouseTicker].openPrice = _price;
         openPriceEvent();
     }
     /**
      * Handler method called by Chainlink for the first house close price 
      **/
-    function firstHouseClose(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
+    function firstHouseClose(uint256 _price) external onlyDoTxLib {
         wars[currentWarIndex].houses[currentFirstHouseTicker].closePrice = _price;
         closePriceEvent();
     }
     /**
      * Handler method called by Chainlink for the second house close price 
      **/
-    function secondHouseClose(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
+    function secondHouseClose(uint256 _price) external onlyDoTxLib {
         wars[currentWarIndex].houses[currentSecondHouseTicker].closePrice = _price;
         closePriceEvent();
     }
@@ -578,28 +635,7 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
     function setSelectWinnerPrecision(uint256 _precision) public onlyOwner{
         selecteWinnerPrecision = _precision;
     }
-    
-    /**
-     * Set Chainlink Oracle's address
-     **/
-    function setChainLinkOracleAddress(address _oracleAddress) public onlyOwner{
-        ORACLE_ADDRESS = _oracleAddress;
-    }
-    
-    /**
-     * Set Chainlink Oracle's job id -> http get > uint256 job
-     **/
-    function setChainJobId(string memory _jobId) public onlyOwner{
-        JOBID = _jobId;
-    }
-    
-    /**
-     * Set the amount of Link used to performe a call
-     **/
-    function setOraclePaymentAmount(uint256 _linkAmount) public onlyOwner{
-        ORACLE_PAYMENT = _linkAmount;
-    }
-    
+
     /**
      * Set burn % of the losing house's DoTx to burn
      **/
@@ -621,15 +657,7 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
         
         return true;
     }
-    
-    /**
-     * Let owner withdraw Link owned by the contract
-     **/
-    function withdrawLink() public onlyOwner{
-        LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-        require(link.transfer(owner(), link.balanceOf(address(this))), "Unable to transfer");
-    }
-    
+
     /****************************
             UTILS METHODS
     *****************************/
@@ -637,42 +665,22 @@ contract DoTxGameContract is ChainlinkClient, Ownable {
     /**
      * Convert string to bytes32
      **/
-    function stringToBytes32(string memory source) private pure returns (bytes32 result) {
-        bytes memory tempEmptyStringTest = bytes(source);
-        if (tempEmptyStringTest.length == 0) {
-            return 0x0;
-        }
-    
-        assembly {
-            result := mload(add(source, 32))
-        }
+    function stringToBytes32(string memory source) private view returns (bytes32 result) {
+        return dotxLib.stringToBytes32(source);
     }
     
     /**
      * Convert bytes32 to string
      **/
-    function bytes32ToString(bytes32 x) private pure returns (string memory) {
-        bytes memory bytesString = new bytes(32);
-        uint charCount = 0;
-        for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
-            if (char != 0) {
-                bytesString[charCount] = char;
-                charCount++;
-            }
-        }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (uint256 j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-        return string(bytesStringTrimmed);
+    function bytes32ToString(bytes32 x) private view returns (string memory) {
+        return dotxLib.bytes32ToString(x);
     }
     
     /**
      * A method to concat multiples string in one
      **/
-    function append(string memory a, string memory b, string memory c, string memory d, string memory e) internal pure returns (string memory) {
-        return string(abi.encodePacked(a, b, c, d, e));
+    function append(string memory a, string memory b, string memory c, string memory d, string memory e) internal view returns (string memory) {
+        return dotxLib.append(a,b, c, d, e);
     }
     
     /**
