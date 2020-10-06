@@ -132,15 +132,7 @@ contract DoTxGameContract is Ownable {
     bytes32 currentFirstHouseTicker;
     //Second house for the current war
     bytes32 currentSecondHouseTicker;
-    
-    //CHAINLINK VARS
-    // The address of an oracle - you can find node addresses on https://market.link/search/nodes
-    //address ORACLE_ADDRESS = 0xB36d3709e22F7c708348E225b20b13eA546E6D9c; ROPSTEN
-    address public ORACLE_ADDRESS = 0x56dd6586DB0D08c6Ce7B2f2805af28616E082455;
-    // The address of the http get > uint256 job
-    string public JOBID = "b6602d14e4734c49a5e1ce19d45a4632";
-    //LINK amount / transaction (oracle payment)
-    uint256 public ORACLE_PAYMENT = 100000000000000000;
+
     
     //GENERAL VARS
     //Total fees paid by users
@@ -154,9 +146,11 @@ contract DoTxGameContract is Ownable {
     
     //EVENTS
     event WarStarted();
-    event TicketBought();
+    event TicketBought(string house);
+    event SwitchHouse(string from, string to);
     event openPriceFetched();
     event closePriceFetched();
+    event eventTx(string txType);
     
     //MODIFIERS
     modifier onlyIfCurrentWarFinished() {
@@ -194,7 +188,7 @@ contract DoTxGameContract is Ownable {
         string memory secondHouseT = "TEND";
         string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(now, 1, 10000000000000000000, 1, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex] = War(now, 86400, 10000000000000000000, 86000, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
         wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
         wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
         
@@ -206,21 +200,23 @@ contract DoTxGameContract is Ownable {
      * Game contract constructor
      * Just pass the DoTx contract address in parameter
      **/
-    constructor(address dotxTokenAddress, address dotxLibAddr) public {
+    constructor(address dotxTokenAddress, address dotxLibAddr, bool setupAddressInLib) public {
         //Implement DoTx contract interface by providing address
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
-        setDoTxLib(dotxLibAddr);
+        setDoTxLib(dotxLibAddr, setupAddressInLib);
         
         //Delete for production
-        mockData();
+        //mockData();
     }
     
-    function setDoTxLib(address dotxLibAddr) public onlyOwner {
+    function setDoTxLib(address dotxLibAddr, bool setupAddressInLib) public onlyOwner {
         //DOTX lib mainly uses for Chainlink
         dotxLibAddress = dotxLibAddr;
         dotxLib = IDoTxLib(dotxLibAddress);
-        dotxLib.setDoTxGame(address(this));
+        if(setupAddressInLib){
+            dotxLib.setDoTxGame(address(this));
+        }
     }
     
     /**************************
@@ -267,16 +263,9 @@ contract DoTxGameContract is Ownable {
      **/
     function buyTickets(string memory _houseTicker, uint _numberOfTicket) public onlyIfTicketsPurchasable returns(bool) {
         War storage war = wars[currentWarIndex];
-        if(isOnChain){
-            //Check if user has approve GAME CONTRACT > MIN_ALLOWANCE
-            require(dotxToken.allowance(msg.sender, address(this)) > MIN_ALLOWANCE, "Please approve at least 1000000000000000000000000000 Dotx to spend");
-        }
         
         //Check if user has enough DoTx to spend
         uint256 userAmountSpend = getWarTicketPrice(currentWarIndex).mul(_numberOfTicket);
-        if(isOnChain){
-            require(dotxToken.balanceOf(msg.sender) >= userAmountSpend, "Not enough DoTx in balance to buy ticket(s)");
-        }
         
         //Check if house is in competition
         bytes32 houseTicker = stringToBytes32(_houseTicker);
@@ -302,7 +291,7 @@ contract DoTxGameContract is Ownable {
         war.ticketsBought = war.ticketsBought.add(_numberOfTicket);
         
         //Propagate TicketBought event
-        emit TicketBought();
+        emit TicketBought(_houseTicker);
         
         //Transfer DoTx
         if(isOnChain){
@@ -362,6 +351,8 @@ contract DoTxGameContract is Ownable {
         //Update total fees
         totalFees = totalFees.add(feesToBePaid);
         
+        emit SwitchHouse(_fromHouseTicker, _toHouseTicker);
+        
         //Get fees from user wallet
         if(isOnChain){
             return dotxToken.transferFrom(msg.sender, address(this), feesToBePaid);
@@ -397,6 +388,8 @@ contract DoTxGameContract is Ownable {
         
         //Set rewardClaimed to true
         wars[currentWarIndex].users[msg.sender].rewardClaimed = true;
+        
+        emit eventTx("CLAIM");
     }
 
     
@@ -451,6 +444,7 @@ contract DoTxGameContract is Ownable {
         /*
         BURN X% OF LOSING HOUSE'S DOTX
         */
+        emit eventTx("BURN");
         dotxToken.transfer(BURN_ADDRESS, wars[currentWarIndex].houses[losingHouse].dotxToBurn);
     }
 
