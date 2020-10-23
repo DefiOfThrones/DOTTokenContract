@@ -39,7 +39,7 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
     });
 });
 
-
+/*
 exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => {
     myContract.methods.balanceOf(MARKETING_CONTRACT_ADDRESS).call().then(function(marketingContratBalance) {
         myContract.methods.balanceOf(TEAM_CONTRACT_ADDRESS).call().then(function(teamContratBalance) {
@@ -55,4 +55,4 @@ exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => 
             })
         })
     })
-});
+});*/

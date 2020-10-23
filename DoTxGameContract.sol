@@ -13,6 +13,7 @@ interface IDoTxLib{
     function stringToBytes32(string calldata source) external pure returns (bytes32 result);
     function bytes32ToString(bytes32 x) external pure returns (string memory);
     function append(string calldata a, string calldata b, string calldata c, string calldata d, string calldata e) external pure returns (string memory);
+    function calculateHousePerf(int256 open, int256 close, int256 precision) external pure returns(int256);
 }
 
 contract Context {
@@ -80,7 +81,7 @@ contract DoTxGameContract is Ownable {
     
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
     bool isOnChain = true;
-    uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000;
+    uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000000;
     uint256 constant public SECONDS_IN_DAYS = 86400;
     address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
 
@@ -108,6 +109,7 @@ contract DoTxGameContract is Ownable {
         uint256 closePrice;
         uint256 ticketsBought;
         uint256 dotxToBurn;
+        uint256 dotxToSendInStaking;
         uint256 totalUsers;
     }
     //User struct, each war contains a map of users
@@ -123,9 +125,12 @@ contract DoTxGameContract is Ownable {
     IDotTokenContract private dotxToken;
     //DOTX Game lib
     IDoTxLib private dotxLib;
+    address stakingAddress = address(0x1c2206f3115CaC3750acCb899d18d50b774C2f21);
     
-    //Array of Wars 
+    //Map of Wars 
     mapping(uint256 => War) public wars;
+    //Map of players address
+    mapping(uint256 => address[]) public players;
     //Index of the current war
     uint256 public currentWarIndex = 0;
     //First house for the current war
@@ -143,6 +148,8 @@ contract DoTxGameContract is Ownable {
     //BURN VARS
     //% of DoTx burn from losing house
     uint256 public burnPercentage = 5;
+    //% of DoTx to send in staking address from losing house
+    uint256 public stakingPercentage = 5;
     
     //EVENTS
     event WarStarted();
@@ -188,9 +195,9 @@ contract DoTxGameContract is Ownable {
         string memory secondHouseT = "TEND";
         string memory secondHouseId = "tendies";
         
-        wars[currentWarIndex] = War(now, 86400, 10000000000000000000, 86000, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
-        wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0);
-        wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0);
+        wars[currentWarIndex] = War(now, 300, 10000000000000000000, 250, 0, 0, 0, 1, 10000, stringToBytes32(firstHouseT), stringToBytes32(secondHouseT));
+        wars[currentWarIndex].houses[stringToBytes32(firstHouseT)] = House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0, 0, 0, 0);
+        wars[currentWarIndex].houses[stringToBytes32(secondHouseT)] = House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0, 0, 0, 0);
         
         currentFirstHouseTicker = stringToBytes32(firstHouseT);
         currentSecondHouseTicker = stringToBytes32(secondHouseT);
@@ -208,15 +215,6 @@ contract DoTxGameContract is Ownable {
         
         //Delete for production
         //mockData();
-    }
-    
-    function setDoTxLib(address dotxLibAddr, bool setupAddressInLib) public onlyOwner {
-        //DOTX lib mainly uses for Chainlink
-        dotxLibAddress = dotxLibAddr;
-        dotxLib = IDoTxLib(dotxLibAddress);
-        if(setupAddressInLib){
-            dotxLib.setDoTxGame(address(this));
-        }
     }
     
     /**************************
@@ -244,9 +242,9 @@ contract DoTxGameContract is Ownable {
         wars[currentWarIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, 0, 0, _warFeesPercent, _multiplicator, currentFirstHouseTicker, currentSecondHouseTicker);
         
         //Create first house
-        wars[currentWarIndex].houses[currentFirstHouseTicker] = House(currentFirstHouseTicker, stringToBytes32(_firstHouseId), 0, 0, 0, 0, 0);
+        wars[currentWarIndex].houses[currentFirstHouseTicker] = House(currentFirstHouseTicker, stringToBytes32(_firstHouseId), 0, 0, 0, 0, 0, 0);
         //Create second house
-        wars[currentWarIndex].houses[currentSecondHouseTicker] = House(currentSecondHouseTicker, stringToBytes32(_secondHouseId), 0, 0, 0, 0, 0);
+        wars[currentWarIndex].houses[currentSecondHouseTicker] = House(currentSecondHouseTicker, stringToBytes32(_secondHouseId), 0, 0, 0, 0, 0, 0);
         
         emit WarStarted();
         
@@ -275,9 +273,14 @@ contract DoTxGameContract is Ownable {
         bytes32 userHouseTicker = getCurrentUser().houseTicker;
         require(userHouseTicker == houseTicker || userHouseTicker == 0, "You can't buy tickets for the other house - You can switch if you want");
         
-        //Count unique user
-        war.houses[houseTicker].totalUsers = war.users[msg.sender].ticketsBought == 0 ? war.houses[houseTicker].totalUsers + 1 : war.houses[houseTicker].totalUsers;
         
+        if(war.users[msg.sender].ticketsBought == 0){
+            //Count unique user
+            war.houses[houseTicker].totalUsers = war.houses[houseTicker].totalUsers + 1;
+            //Add player
+            players[currentWarIndex].push(msg.sender);
+        }
+
         //Update user tickets
         war.users[msg.sender].houseTicker = houseTicker;
         war.users[msg.sender].ticketsBought = getCurrentUser().ticketsBought.add(_numberOfTicket);
@@ -285,7 +288,10 @@ contract DoTxGameContract is Ownable {
         //Increase tickets bought for the house
         war.houses[houseTicker].ticketsBought = war.houses[houseTicker].ticketsBought.add(_numberOfTicket);
         //Calculate tickets remaining after burn
-        war.houses[houseTicker].dotxToBurn = calculateBurn(war.houses[houseTicker].ticketsBought * getWarTicketPrice(currentWarIndex));
+        uint256 ticketsBoughtValueDoTx = war.houses[houseTicker].ticketsBought * getWarTicketPrice(currentWarIndex);
+        war.houses[houseTicker].dotxToBurn = calculatePercentage(ticketsBoughtValueDoTx, burnPercentage);
+        //Set staking amount
+        war.houses[houseTicker].dotxToSendInStaking = calculatePercentage(ticketsBoughtValueDoTx, stakingPercentage);
         
         //Increase total tickets bought
         war.ticketsBought = war.ticketsBought.add(_numberOfTicket);
@@ -330,13 +336,21 @@ contract DoTxGameContract is Ownable {
         uint256 fromHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _fromHouseTicker);
         war.houses[fromHouseTicker].ticketsBought = fromHouseTickets.sub(ticketsBoughtByUser);
         uint256 ticketsBoughtUpTodate = war.houses[fromHouseTicker].ticketsBought;
-        war.houses[fromHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex));
+        
+        uint256 ticketsValueInDoTx = ticketsBoughtUpTodate.mul(getWarTicketPrice(currentWarIndex));
+        war.houses[fromHouseTicker].dotxToBurn = calculatePercentage(ticketsValueInDoTx, burnPercentage);
+        //Set staking amount
+        war.houses[fromHouseTicker].dotxToSendInStaking = calculatePercentage(ticketsValueInDoTx, stakingPercentage);
         
         //Update toHouse tickets
         uint256 toHouseTickets = getTicketsBoughtForHouse(currentWarIndex, _toHouseTicker);
         war.houses[toHouseTicker].ticketsBought = toHouseTickets.add(ticketsBoughtByUser);
         ticketsBoughtUpTodate = war.houses[toHouseTicker].ticketsBought;
-        war.houses[toHouseTicker].dotxToBurn = calculateBurn(ticketsBoughtUpTodate * getWarTicketPrice(currentWarIndex));
+        
+        uint256 ticketsBoughtUpTodateValueInDoTx = ticketsBoughtUpTodate.mul(getWarTicketPrice(currentWarIndex));
+        war.houses[toHouseTicker].dotxToBurn = calculatePercentage(ticketsBoughtUpTodateValueInDoTx, burnPercentage);
+        //Set staking amount currently == burn amount
+        war.houses[toHouseTicker].dotxToSendInStaking = calculatePercentage(ticketsBoughtUpTodateValueInDoTx, stakingPercentage);
         
         //Update unique users
         war.houses[fromHouseTicker].totalUsers = war.houses[fromHouseTicker].totalUsers - 1;
@@ -434,8 +448,8 @@ contract DoTxGameContract is Ownable {
         int256 sndHClose = int256(getSecondHouse().closePrice);
         int256 precision = int256(selecteWinnerPrecision);
         
-        int256 firstHousePerf = ((fstHClose - (fstHOpen)) * precision) / fstHOpen;
-        int256 secondHousePerf = ((sndHClose - (sndHOpen)) * precision) / sndHOpen;
+        int256 firstHousePerf =  dotxLib.calculateHousePerf(fstHOpen, fstHClose, precision);
+        int256 secondHousePerf = dotxLib.calculateHousePerf(sndHOpen, sndHClose, precision);
         
         //Set winner house
         wars[currentWarIndex].winningHouse = firstHousePerf > secondHousePerf ? currentFirstHouseTicker : currentSecondHouseTicker;
@@ -446,6 +460,12 @@ contract DoTxGameContract is Ownable {
         */
         emit eventTx("BURN");
         dotxToken.transfer(BURN_ADDRESS, wars[currentWarIndex].houses[losingHouse].dotxToBurn);
+        
+        /*
+        BURN X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESS
+        */
+        emit eventTx("STAKING");
+        dotxToken.transfer(stakingAddress, wars[currentWarIndex].houses[losingHouse].dotxToSendInStaking);
     }
 
     
@@ -619,8 +639,15 @@ contract DoTxGameContract is Ownable {
         return wars[_warIndex].houses[stringToBytes32(houseTicker)];
     }
     
+    /**
+     * Return players addresses for the specific war
+     **/
+    function getPlayers(uint256 _warIndex) public view returns(address[] memory){
+        return players[_warIndex];
+    }
+
     /*****************************
-            SETTER METHODS
+            ADMIN METHODS
     ******************************/
     
     /**
@@ -636,10 +663,13 @@ contract DoTxGameContract is Ownable {
     function setBurnPercentage(uint256 _burnPercentage) public onlyOwner{
         burnPercentage = _burnPercentage;
     }
-
-    /*****************************
-            ADMIN METHODS
-    ******************************/
+    
+     /**
+     * Set staking % of the losing house's DoTx to send
+     **/
+    function setStakingPercentage(uint256 _stakingPercentage) public onlyOwner{
+        stakingPercentage = _stakingPercentage;
+    }
     
     /**
      * Let owner withdraw DoTx fees (in particular to pay the costs generated by Chainlink)
@@ -650,6 +680,25 @@ contract DoTxGameContract is Ownable {
         totalFees = 0;
         
         return true;
+    }
+    
+    /**
+     * Let owner set the DoTxLib address
+     **/
+    function setDoTxLib(address dotxLibAddr, bool setupAddressInLib) public onlyOwner {
+        //DOTX lib mainly uses for Chainlink
+        dotxLibAddress = dotxLibAddr;
+        dotxLib = IDoTxLib(dotxLibAddress);
+        if(setupAddressInLib){
+            dotxLib.setDoTxGame(address(this));
+        }
+    }
+    
+    /**
+     * Let owner update stakingAddress
+     **/
+    function setStakingAddress(address stakingAdr) public onlyOwner returns(bool) {
+        stakingAddress = stakingAdr;
     }
 
     /****************************
@@ -727,7 +776,7 @@ contract DoTxGameContract is Ownable {
         
         //Total DoTx in house's balance
         uint256 totalDoTxWinningHouse = wars[currentWarIndex].houses[winningHouse].ticketsBought.mul(ticketPrice);
-        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice).sub(wars[currentWarIndex].houses[losingHouse].dotxToBurn);
+        uint256 totalDoTxLosingHouse = wars[currentWarIndex].houses[losingHouse].ticketsBought.mul(ticketPrice).sub(wars[currentWarIndex].houses[losingHouse].dotxToBurn).sub(wars[currentWarIndex].houses[losingHouse].dotxToSendInStaking);
         
         uint256 dotxUserBalance = getUserDoTxInBalance(currentWarIndex, userAddress);
         
@@ -740,9 +789,9 @@ contract DoTxGameContract is Ownable {
     }
     
     /*
-    * CALCULATE BURN
+    * CALCULATE BURN OR STAKING %
     */
-    function calculateBurn(uint256 amount) public view returns(uint256){
-        return amount.mul(selecteWinnerPrecision).mul(burnPercentage).div(100).div(selecteWinnerPrecision);
+    function calculatePercentage(uint256 amount, uint256 percentage) public view returns(uint256){
+        return amount.mul(selecteWinnerPrecision).mul(percentage).div(100).div(selecteWinnerPrecision);
     }
 }

@@ -89,6 +89,10 @@ contract DoTxLib is ChainlinkClient, Ownable {
         setPublicChainlinkToken();
     }
     
+    function calculateHousePerf(int256 open, int256 close, int256 precision) external pure returns(int256){
+        return ((close - open) * precision) / open;
+    }
+    
     /*******************************
             CHAINLINK METHODS
     ********************************/

@@ -14,16 +14,14 @@ contract DoTxAirDrop is Pausable {
   uint256 public airDropValueWei;
   mapping (bytes=>bool) public whitelistedAddresses;
   mapping (address=>bool) public claimDonePerUser;
-  bytes[] public whitelistedAddressesList;
   IDotTokenContract private dotxToken;
-  mapping (bytes=>bool) public testBytesMap;
 
   constructor(address dotxAddress, uint256 claimValueWei) public {
     dotxToken = IDotTokenContract(dotxAddress);
     airDropValueWei = claimValueWei;
   }
 
-    function claimAirDrop() public {
+    function claimAirDrop() public whenNotPaused {
         
         require(canClaim(msg.sender), "You already claimed you drop");
         
@@ -37,17 +35,16 @@ contract DoTxAirDrop is Pausable {
             && claimDonePerUser[toCheck] == false);
     }
 
-    function enableWhitelistVerification() public onlyOwner {
-        isWhitelistEnabled = true;
+    function enableWhitelistVerification(bool enable) public onlyOwner {
+        isWhitelistEnabled = enable;
     }
-    
-    function disableWhitelistVerification() public onlyOwner {
-        isWhitelistEnabled = false;
+
+    function setAirDropValueWei(uint256 valueInWei) public onlyOwner {
+        airDropValueWei = valueInWei;
     }
 
     function addToWhitelist(bytes memory sender) public onlyOwner {
         whitelistedAddresses[sender] = true;
-        whitelistedAddressesList.push(sender);
     }
     
     function addToWhitelist(bytes[] memory addresses) public onlyOwner {
