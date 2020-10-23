@@ -47,10 +47,12 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
 exports.getWhitelist = functions.https.onRequest((req, response) => {
     db.collection('whitelist').get()
     .then(snapshot => {
+        var testers = "Whitelisted addresses : "+snapshot.size+"<br/><br/>"
         snapshot.forEach(doc => {
             console.log(doc.id, '=>', doc.data());
-            response.send(doc.id+" DoTx Owned : "+doc.data().dotxOwned+" Join at : "+doc.data().registrationDate.toDate());
+            testers+= doc.id+" || DoTx Owned : "+doc.data().dotxOwned+" || Join at : "+doc.data().registrationDate.toDate()+"<br/>";
         });
+        response.send(testers);
         response.status(200).end();
     })
     .catch(err => {
