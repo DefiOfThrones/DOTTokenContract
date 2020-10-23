@@ -5,12 +5,17 @@ var ABI = require ("./config/dotx.js")
 require ("./configHelper.js")
 var Web3 = require('web3');
 
+const admin = require('firebase-admin');
+admin.initializeApp();
+
+const db = admin.firestore();
+
 //VARS
 var provider = new Web3.providers.HttpProvider(BLOCKCHAIN_PROVIDER);
 var web3 = new Web3(provider);
 var myContract = new web3.eth.Contract(ABI.getABI(), DOTX_CONTRACT_ADDRESS);
 
-
+/*
 exports.getCurrentPrice = functions.https.onRequest((req, response) => {
     fsym = req.query.fsym.toLowerCase();
     tsym = req.query.tsym.toLowerCase();
@@ -37,6 +42,22 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
             response.status(500).end();
         }
     });
+});*/
+
+exports.getWhitelist = functions.https.onRequest((req, response) => {
+    db.collection('whitelist').get()
+    .then(snapshot => {
+        snapshot.forEach(doc => {
+            console.log(doc.id, '=>', doc.data());
+            response.send(doc.id);
+        });
+        response.status(200).end();
+    })
+    .catch(err => {
+        console.log('Error getting documents', err);
+        response.send('Error getting documents' + err);
+        response.status(200).end();
+    });    
 });
 
 /*
