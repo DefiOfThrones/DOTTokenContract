@@ -49,7 +49,7 @@ exports.getWhitelist = functions.https.onRequest((req, response) => {
     .then(snapshot => {
         snapshot.forEach(doc => {
             console.log(doc.id, '=>', doc.data());
-            response.send(doc.id);
+            response.send(doc.id+" DoTx Owned : "+doc.data().dotxOwned+" Join at : "+doc.data().registrationDate.toDate());
         });
         response.status(200).end();
     })
