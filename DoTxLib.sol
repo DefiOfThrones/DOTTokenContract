@@ -4,10 +4,10 @@ pragma experimental ABIEncoderV2;
 import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkClient.sol";
 
 interface IDotxGame{
-     function firstHouseOpen(uint256 _price) external;
-     function secondHouseOpen(uint256 _price) external;
-     function firstHouseClose(uint256 _price) external;
-     function secondHouseClose(uint256 _price) external;
+     function firstHouseOpen(uint256 _price, uint256 warIndex) external;
+     function secondHouseOpen(uint256 _price, uint256 warIndex) external;
+     function firstHouseClose(uint256 _price, uint256 warIndex) external;
+     function secondHouseClose(uint256 _price, uint256 warIndex) external;
  }
  
  contract Context {
@@ -80,6 +80,9 @@ contract DoTxLib is ChainlinkClient, Ownable {
     //LINK amount / transaction (oracle payment)
     uint256 public ORACLE_PAYMENT = 100000000000000000;
     
+    uint256 public rewardPrecision = 10000;
+    
+    uint256 public warIndex;
     /**
      * Game contract constructor
      * Just pass the DoTx contract address in parameter
@@ -93,6 +96,19 @@ contract DoTxLib is ChainlinkClient, Ownable {
         return ((close - open) * precision) / open;
     }
     
+    /*
+    * CALCULATE BURN OR STAKING %
+    */
+    function calculatePercentage(uint256 amount, uint256 percentage, uint256 selecteWinnerPrecision) public pure returns(uint256){
+        return amount.mul(selecteWinnerPrecision).mul(percentage).div(100).div(selecteWinnerPrecision);
+    }
+    
+    function calculateReward(uint256 dotxUserBalance, uint256 totalDoTxWinningHouse, uint256 totalDoTxLosingHouse) public view returns(uint256){
+        uint256 percent = (dotxUserBalance.mul(rewardPrecision)).div(totalDoTxWinningHouse);
+        //Reward for user balance
+        return (totalDoTxLosingHouse.mul(percent)).div(rewardPrecision);
+    }
+    
     /*******************************
             CHAINLINK METHODS
     ********************************/
@@ -100,7 +116,8 @@ contract DoTxLib is ChainlinkClient, Ownable {
     /**
      * Fetch the prices for the 2 houses the first day for the current war
      **/
-    function fetchFirstDayPrices(string memory firstHouseTicker, string memory secondHouseTicker, string memory firstHouseId, string memory secondHouseId, int256 multiplicator) public onlyDoTxGame {
+    function fetchFirstDayPrices(string memory firstHouseTicker, string memory secondHouseTicker, string memory firstHouseId, string memory secondHouseId, int256 multiplicator, uint256 _warIndex) public onlyDoTxGame {
+        warIndex = _warIndex;
         queryChainLinkPrice(firstHouseTicker, firstHouseId, multiplicator, this.firstHouseOpen.selector);
         queryChainLinkPrice(secondHouseTicker, secondHouseId, multiplicator, this.secondHouseOpen.selector);
     }
@@ -108,7 +125,8 @@ contract DoTxLib is ChainlinkClient, Ownable {
     /**
      * Fetch the prices for the 2 houses the last day for the current war
      **/
-    function fetchLastDayPrices(string memory firstHouseTicker, string memory currentSecondHouseTicker, string memory firstHouseId, string memory secondHouseId, int256 multiplicator) public onlyDoTxGame {
+    function fetchLastDayPrices(string memory firstHouseTicker, string memory currentSecondHouseTicker, string memory firstHouseId, string memory secondHouseId, int256 multiplicator, uint256 _warIndex) public onlyDoTxGame {
+        warIndex = _warIndex;
         queryChainLinkPrice(firstHouseTicker, firstHouseId, multiplicator, this.firstHouseClose.selector);
         queryChainLinkPrice(currentSecondHouseTicker, secondHouseId, multiplicator, this.secondHouseClose.selector);
     }
@@ -135,25 +153,25 @@ contract DoTxLib is ChainlinkClient, Ownable {
      * Handler method called by Chainlink for the first house open price 
      **/
     function firstHouseOpen(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
-        dotxGame.firstHouseOpen(_price);
+        dotxGame.firstHouseOpen(_price, warIndex);
     }
     /**
      * Handler method called by Chainlink for the second house open price 
      **/
     function secondHouseOpen(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
-        dotxGame.secondHouseOpen(_price);
+        dotxGame.secondHouseOpen(_price, warIndex);
     }
     /**
      * Handler method called by Chainlink for the first house close price 
      **/
     function firstHouseClose(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
-        dotxGame.firstHouseClose(_price);
+        dotxGame.firstHouseClose(_price, warIndex);
     }
     /**
      * Handler method called by Chainlink for the second house close price 
      **/
     function secondHouseClose(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId){
-        dotxGame.secondHouseClose(_price);
+        dotxGame.secondHouseClose(_price, warIndex);
     }
     
     
@@ -193,6 +211,10 @@ contract DoTxLib is ChainlinkClient, Ownable {
     function setDoTxGame(address gameAddress) public onlyOwner{
         dotxGame = IDotxGame(gameAddress);
         dotxGameAddress = gameAddress;
+    }
+    
+    function setRewardPrecision(uint256 precision) public onlyOwner{
+        rewardPrecision = precision;
     }
     
     /****************************
