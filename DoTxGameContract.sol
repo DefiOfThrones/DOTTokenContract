@@ -310,7 +310,7 @@ contract DoTxGameContract is Ownable {
         require(wars[warIndex].users[msg.sender].rewardClaimed == false, "You already claimed your reward");
         
         //Check if user belongs to winning house
-        require(wars[warIndex].users[msg.sender].houseTicker == wars[warIndex].winningHouse, "User doesn't belong to winning house");
+        require(wars[warIndex].users[msg.sender].ticketsBought > 0 && wars[warIndex].users[msg.sender].houseTicker == wars[warIndex].winningHouse, "User doesn't belong to winning house");
         
         //DoTx in user balance
         uint256 reward = getCurrentReward(wars[warIndex].winningHouse, msg.sender, warIndex);
@@ -333,7 +333,6 @@ contract DoTxGameContract is Ownable {
      * Fetch the prices for the 2 houses the first day for the current war
      **/
     function fetchFirstDayPrices(uint256 warIndex) public onlyOwner {
-        require(isFirstDayForCurrentWar(warIndex), "Impossible to get first day prices after the first day has passed");
         require(wars[warIndex].firstHouse.openPrice == 0 && wars[warIndex].secondHouse.openPrice == 0, "Open prices already fetched");
         
         string memory firstHouse = bytes32ToString(wars[warIndex].firstHouse.houseTicker);
@@ -553,14 +552,6 @@ contract DoTxGameContract is Ownable {
     /****************************
             UTILS METHODS
     *****************************/
-    
-    /**
-     * Return true if the war is in its first day
-     **/
-    function isFirstDayForCurrentWar(uint256 warIndex) view private returns(bool){
-        //Update start time if failed
-        return (now.sub(wars[warIndex].startTime)) < SECONDS_IN_DAYS;
-    }
     
     function getHouseStg(bytes32 ticker, uint256 warIndex) private view returns(House storage){
         return wars[warIndex].firstHouse.houseTicker == ticker ? wars[warIndex].firstHouse : wars[warIndex].secondHouse;
