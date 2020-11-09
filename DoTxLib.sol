@@ -217,6 +217,14 @@ contract DoTxLib is ChainlinkClient, Ownable {
         rewardPrecision = precision;
     }
     
+    function getWarIndex() public view returns(uint256){
+        return warIndex;
+    }
+    
+    function setWarIndex(uint256 _warIndex) public onlyOwner{
+        warIndex = _warIndex;
+    }
+    
     /****************************
             UTILS METHODS
     *****************************/

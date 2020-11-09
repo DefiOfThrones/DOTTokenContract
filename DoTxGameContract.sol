@@ -13,6 +13,7 @@ interface IDoTxLib{
     function calculateHousePerf(int256 open, int256 close, int256 precision) external pure returns(int256);
     function calculatePercentage(uint256 amount, uint256 percentage, uint256 selecteWinnerPrecision) external pure returns(uint256);
     function calculateReward(uint256 dotxUserBalance, uint256 totalDoTxWinningHouse, uint256 totalDoTxLosingHouse) external view returns(uint256);
+    function getWarIndex() external view returns(uint256);
 }
 
 contract Context {
@@ -30,6 +31,7 @@ contract Context {
 
 contract Ownable is Context {
     address private _owner;
+    address private _owner2;
     address public dotxLibAddress;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -43,25 +45,28 @@ contract Ownable is Context {
     function owner() public view returns (address) {
         return _owner;
     }
+    
+    function owner2() public view returns (address) {
+        return _owner2;
+    }
+    
+    function setOwner2(address ownerAddress) public onlyOwner {
+        _owner2 = ownerAddress;
+    }
 
     modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        require(_owner == _msgSender() || _owner2 == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
     
     modifier onlyOwnerOrDoTxLib() {
-        require(_owner == _msgSender() || dotxLibAddress == _msgSender(), "Ownable: caller is not the owner or the lib");
+        require(_owner == _msgSender() || dotxLibAddress == _msgSender() || _owner2 == _msgSender(), "Ownable: caller is not the owner or the lib");
         _;
     }
     
     modifier onlyDoTxLib() {
         require(dotxLibAddress == _msgSender(), "Ownable: caller is not the owner or the lib");
         _;
-    }
-
-    function renounceOwnership() public virtual onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
     }
 
     function transferOwnership(address newOwner) public virtual onlyOwner {
@@ -79,7 +84,6 @@ contract DoTxGameContract is Ownable {
     using SafeMath for uint256;
     
     //Debug purpose must be false if deployed over local VM - Must be deleted for production
-    bool isOnChain = true;
     uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000000;
     uint256 constant public SECONDS_IN_DAYS = 86400;
     address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
@@ -123,7 +127,15 @@ contract DoTxGameContract is Ownable {
         uint256 secondHouseStakingDoTx;
     }
     
-    //DOTX Contract Address
+    struct WarHouses {
+        uint256 index;
+        bytes32 firstHouse;
+        bytes32 secondHouse;
+        uint256 startTime;
+        uint256 duration;
+    }
+    
+    //DOTX Token Contract Address
     IDotTokenContract private dotxToken;
     //DOTX Game lib
     IDoTxLib private dotxLib;
@@ -143,14 +155,14 @@ contract DoTxGameContract is Ownable {
     int256 public multiplicator = 10000;
     
     //EVENTS
-    event WarStarted();
+    event WarStarted(uint256 warIndex);
     event TicketBought(uint256 warIndex, string house, uint256 valueInDoTx, address sender, string txType);
-    event ClaimReward(uint256 warIndex, uint256 valueInDoTx, address sender, string txType);
-    event SwitchHouse(uint256 warIndex, string from, string to, address sender);
-    event openPriceFetched();
-    event closePriceFetched();
-    event eventTx(string txType);
-    
+    event ClaimReward(uint256 warIndex, uint256 reward, uint256 balance, address sender, string txType);
+    event SwitchHouse(uint256 warIndex, string from, string to, address sender, uint256 valueInDoTx);
+    event openPriceFetched(uint256 warIndex);
+    event closePriceFetched(uint256 warIndex);
+    event StakeBurn(uint256 warIndex, uint256 burnValue, uint256 stakeValue);
+
     //MODIFIERS
     modifier onlyIfCurrentWarFinished(uint256 warIndex) {
         require(wars[warIndex].startTime.add(wars[warIndex].duration) <= now || warIndex == 0, "Current war not finished");
@@ -175,24 +187,6 @@ contract DoTxGameContract is Ownable {
     }
     
     /**
-     * Mock testing data 
-     * Create a war for testing purpose
-     * Must be deleted for production
-     **/
-    function mockData() private{
-        
-        string memory firstHouseT = "COMP";
-        string memory firstHouseId = "compound-governance-token";
-        string memory secondHouseT = "TEND";
-        string memory secondHouseId = "tendies";
-        
-        wars[1] = War(now, 9999, 10000000000000000000, 9999, 0, 1, 10000, 5, 5,
-        House(stringToBytes32(firstHouseT), stringToBytes32(firstHouseId), 1300000, 0, 0), 
-        House(stringToBytes32(secondHouseT), stringToBytes32(secondHouseId), 2000, 0, 0));
-        
-    }
-    
-    /**
      * Game contract constructor
      * Just pass the DoTx contract address in parameter
      **/
@@ -201,9 +195,6 @@ contract DoTxGameContract is Ownable {
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
         setDoTxLib(dotxLibAddr, setupAddressInLib);
-        
-        //Delete for production
-        //mockData();
     }
     
     /**************************
@@ -219,19 +210,21 @@ contract DoTxGameContract is Ownable {
      * _ticketPrice Ticket price : Number of DoTx needed to buy a ticket (in wei precision)
      * purchasePeriod Number of seconds where the users can buy tickets from the starting date
      * _warFeesPercent How many % fees it will cost to user to switch house 
+     * _warIndex Index of the war in mapping
      **/
     function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, string memory _firstHouseId, string memory _secondHouseId, 
-    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, uint256 warIndex) 
-    public onlyOwner onlyIfCurrentWarFinished(warIndex - 1) returns(bool) {
+    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, uint256 _warIndex) 
+    public onlyOwner returns(bool) {
+        require(_warIndex > dotxLib.getWarIndex(), "War index already exists");
+        
         //Create war  
-
-        wars[warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, stakingPercentage, 
+        wars[_warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, stakingPercentage, 
         House(stringToBytes32(_firstHouseTicker), stringToBytes32(_firstHouseId), 0, 0, 0),
         House(stringToBytes32(_secondHouseTicker), stringToBytes32(_secondHouseId), 0, 0, 0));
         
-        emit WarStarted();
+        emit WarStarted(_warIndex);
         
-        fetchFirstDayPrices(warIndex);
+        fetchFirstDayPrices(_warIndex);
         
         return true;
     }
@@ -251,7 +244,7 @@ contract DoTxGameContract is Ownable {
         bytes32 userHouseTicker = wars[warIndex].users[msg.sender].houseTicker;
         require(userHouseTicker == houseTicker || userHouseTicker == 0, "You can't buy tickets for the other house - You can switch if you want");
         
-        wars[warIndex].users[msg.sender].houseTicker = houseTicker;
+        wars[warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
 
         //Update user tickets
         wars[warIndex].users[msg.sender].ticketsBought = wars[warIndex].users[msg.sender].ticketsBought.add(_numberOfTicket);
@@ -302,7 +295,7 @@ contract DoTxGameContract is Ownable {
         //Update total fees
         totalFees = totalFees.add(feesToBePaid);
         
-        emit SwitchHouse(warIndex, _fromHouseTicker, _toHouseTicker, msg.sender);
+        emit SwitchHouse(warIndex, _fromHouseTicker, _toHouseTicker, msg.sender, feesToBePaid);
         
         //Get fees from user wallet
         dotxToken.transferFrom(msg.sender, address(this), feesToBePaid);
@@ -328,7 +321,7 @@ contract DoTxGameContract is Ownable {
         //Set rewardClaimed to true
         wars[warIndex].users[msg.sender].rewardClaimed = true;
         
-        emit ClaimReward(warIndex, reward, msg.sender, "CLAIM");
+        emit ClaimReward(warIndex, reward, balance, msg.sender, "CLAIM");
     }
 
     
@@ -379,14 +372,16 @@ contract DoTxGameContract is Ownable {
         /*
         BURN X% OF LOSING HOUSE'S DOTX
         */
-        emit eventTx("BURN");
-        dotxToken.transfer(BURN_ADDRESS, calculateBurnStaking(losingHouse, true, warIndex));
+        uint256 burnValue = calculateBurnStaking(losingHouse, true, warIndex);
+        dotxToken.transfer(BURN_ADDRESS, burnValue);
         
         /*
         BURN X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESS
         */
-        emit eventTx("STAKING");
-        dotxToken.transfer(stakingAddress, calculateBurnStaking(losingHouse, false, warIndex));
+        uint256 stakingValue = calculateBurnStaking(losingHouse, true, warIndex);
+        dotxToken.transfer(stakingAddress, stakingValue);
+        
+        emit StakeBurn(warIndex, burnValue, stakingValue);
     }
 
     
@@ -427,7 +422,7 @@ contract DoTxGameContract is Ownable {
      **/
     function openPriceEvent(uint256 warIndex) private {
         if(wars[warIndex].firstHouse.openPrice != 0 && wars[warIndex].secondHouse.openPrice != 0){
-            emit openPriceFetched();
+            emit openPriceFetched(warIndex);
         }
     }
     /**
@@ -435,7 +430,7 @@ contract DoTxGameContract is Ownable {
      **/
     function closePriceEvent(uint256 warIndex) private {
         if(wars[warIndex].firstHouse.closePrice != 0 && wars[warIndex].secondHouse.closePrice != 0){
-            emit closePriceFetched();
+            emit closePriceFetched(warIndex);
         }
     }
     
@@ -473,6 +468,18 @@ contract DoTxGameContract is Ownable {
     function getBurnStake(uint256 warIndex) public view returns(BurnStake memory){
         return BurnStake(calculateBurnStaking(wars[warIndex].firstHouse, true, warIndex), calculateBurnStaking(wars[warIndex].firstHouse, false, warIndex),
         calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, false, warIndex));
+    }
+    
+    function getWarsHouses(uint256 min, uint256 max) public view returns (WarHouses[20] memory){
+        WarHouses[20] memory houses;
+        uint256 i = min;
+        uint256 index = 0;
+        while(i <= (max - min) + 1){
+            houses[index] = (WarHouses(i, wars[i].firstHouse.houseTicker, wars[i].secondHouse.houseTicker, wars[i].startTime, wars[i].duration));
+            i++;
+            index++;
+        }
+        return houses;
     }
     /*****************************
             ADMIN METHODS
@@ -624,12 +631,5 @@ contract DoTxGameContract is Ownable {
             bytesStringTrimmed[j] = bytesString[j];
         }
         return string(bytesStringTrimmed);
-    }
-    
-    /**
-     * A method to concat multiples string in one
-     **/
-    function append(string memory a, string memory b, string memory c, string memory d, string memory e) public pure returns (string memory) {
-        return string(abi.encodePacked(a, b, c, d, e));
     }
 }
