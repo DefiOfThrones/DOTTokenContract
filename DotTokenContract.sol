@@ -1,4 +1,5 @@
-pragma solidity 0.6.12;
+
+pragma solidity ^0.6.0;
 
 
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/libs/ERC20Capped.sol";

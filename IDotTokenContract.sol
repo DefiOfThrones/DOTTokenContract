@@ -1,5 +1,4 @@
-
-pragma solidity ^0.6.0;
+pragma solidity 0.6.12;
 
 interface IDotTokenContract{
   function balanceOf(address account) external view returns (uint256);
