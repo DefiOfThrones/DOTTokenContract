@@ -1,4 +1,4 @@
-pragma solidity ^0.6.2;
+pragma solidity 0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/IDotTokenContract.sol";
@@ -240,10 +240,10 @@ contract DoTxGameContract is Ownable {
         
         House storage userHouse = getHouseStg(houseTicker, warIndex);
         
-        //Allow user to only buy tickets for one single House
+        //Allow user to only buy tickets for one single House and the one passed in parameter
         bytes32 userHouseTicker = wars[warIndex].users[msg.sender].houseTicker;
-        require(userHouseTicker == houseTicker || userHouseTicker == 0, "You can't buy tickets for the other house - You can switch if you want");
-        
+        require(userHouse.houseTicker == houseTicker && (userHouseTicker == houseTicker || userHouseTicker == 0), "You can't buy tickets for the other house");
+
         wars[warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
 
         //Update user tickets
@@ -272,8 +272,8 @@ contract DoTxGameContract is Ownable {
         bytes32 fromHouseTicker = stringToBytes32(_fromHouseTicker);
         bytes32 toHouseTicker = stringToBytes32(_toHouseTicker);
         
-        //Check if toHouse is in competition
-        require(checkIfHouseInCompetition(toHouseTicker, warIndex), "House not in competition");
+        //Check if toHouse is in competition && different of fromHouse
+        require(checkIfHouseInCompetition(toHouseTicker, warIndex) && fromHouseTicker != toHouseTicker, "House not in competition");
         //Check if user belongs to _fromHouse 
         require(wars[warIndex].users[msg.sender].houseTicker == fromHouseTicker, "User doesn't belong to fromHouse");
         
@@ -312,14 +312,14 @@ contract DoTxGameContract is Ownable {
         //Check if user belongs to winning house
         require(wars[warIndex].users[msg.sender].ticketsBought > 0 && wars[warIndex].users[msg.sender].houseTicker == wars[warIndex].winningHouse, "User doesn't belong to winning house");
         
+        //Set rewardClaimed to true
+        wars[warIndex].users[msg.sender].rewardClaimed = true;
+        
         //DoTx in user balance
         uint256 reward = getCurrentReward(wars[warIndex].winningHouse, msg.sender, warIndex);
         uint256 balance = getUserDoTxInBalance(warIndex, msg.sender);
         
         dotxToken.transfer(msg.sender, reward.add(balance));
-        
-        //Set rewardClaimed to true
-        wars[warIndex].users[msg.sender].rewardClaimed = true;
         
         emit ClaimReward(warIndex, reward, balance, msg.sender, "CLAIM");
     }
