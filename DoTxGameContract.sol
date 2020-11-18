@@ -1,9 +1,9 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/IDotTokenContract.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
-import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkClient.sol";
+
 
 interface IDoTxLib{
     function queryChainLinkPrice(string calldata _fsym, string calldata _fsymId, int256 _multiplicator, bytes4 _selector) external;

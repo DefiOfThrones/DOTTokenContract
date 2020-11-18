@@ -1,4 +1,4 @@
-pragma solidity ^0.6.2;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "github.com/smartcontractkit/chainlink/evm-contracts/src/v0.6/ChainlinkClient.sol";
