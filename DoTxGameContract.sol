@@ -84,7 +84,6 @@ contract DoTxGameContract is Ownable {
     using SafeMath for uint256;
     
     uint256 constant public MIN_ALLOWANCE = 1000000000000000000000000000000;
-    uint256 constant public SECONDS_IN_DAYS = 86400;
     address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
 
     //War struct, for each war a War variable will be created 
