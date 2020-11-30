@@ -15,7 +15,7 @@ var provider = new Web3.providers.HttpProvider(BLOCKCHAIN_PROVIDER);
 var web3 = new Web3(provider);
 var myContract = new web3.eth.Contract(ABI.getABI(), DOTX_CONTRACT_ADDRESS);
 
-/*
+
 exports.getCurrentPrice = functions.https.onRequest((req, response) => {
     fsym = req.query.fsym.toLowerCase();
     tsym = req.query.tsym.toLowerCase();
@@ -42,7 +42,7 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
             response.status(500).end();
         }
     });
-});*/
+});
 
 exports.getWhitelist = functions.https.onRequest((req, response) => {
     db.collection('whitelist').get()
@@ -62,7 +62,7 @@ exports.getWhitelist = functions.https.onRequest((req, response) => {
     });    
 });
 
-/*
+
 exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => {
     myContract.methods.balanceOf(MARKETING_CONTRACT_ADDRESS).call().then(function(marketingContratBalance) {
         myContract.methods.balanceOf(TEAM_CONTRACT_ADDRESS).call().then(function(teamContratBalance) {
@@ -78,4 +78,4 @@ exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => 
             })
         })
     })
-});*/
+});
