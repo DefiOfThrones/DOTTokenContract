@@ -82,7 +82,7 @@ contract Ownable is Context {
  */
 contract DoTxGameContract is Ownable {
     using SafeMath for uint256;
-    
+    //Burn x% of the losing house tickets to Vitalik Address
     address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
 
     //War struct, for each war a War variable will be created 
@@ -109,14 +109,14 @@ contract DoTxGameContract is Ownable {
         uint256 ticketsBought;
     }
     //User struct, each war contains a map of users
-    //Each user can pledge allegiance for a house, buy tickets and switch house by paying fees
+    //Each user can pledge allegiance to a house, buy tickets and switch house by paying fees (x% of its bought tickets)
     struct User {
         bytes32 houseTicker;
         uint256 ticketsBought;
         bool rewardClaimed;
     }
     
-    //BURN STAKING
+    //BURN STAKING INFORMATION
     struct BurnStake {
         uint256 firstHouseBurnDoTx;
         uint256 firstHouseStakingDoTx;
@@ -136,6 +136,7 @@ contract DoTxGameContract is Ownable {
     IDotTokenContract private dotxToken;
     //DOTX Game lib
     IDoTxLib private dotxLib;
+    //x% of the losing house tickets are sent to the throne vault
     address stakingAddress = address(0x1c2206f3115CaC3750acCb899d18d50b774C2f21);
     
     //Map of Wars 
@@ -185,7 +186,7 @@ contract DoTxGameContract is Ownable {
     
     /**
      * Game contract constructor
-     * Just pass the DoTx contract address in parameter
+     * Just pass the DoTx token contract address in parameter
      **/
     constructor(address dotxTokenAddress, address dotxLibAddr, bool setupAddressInLib) public {
         //Implement DoTx contract interface by providing address
@@ -212,6 +213,7 @@ contract DoTxGameContract is Ownable {
     function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, string memory _firstHouseId, string memory _secondHouseId, 
     uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, uint256 _warIndex) 
     public onlyOwner returns(bool) {
+        //Just prevent to replace a war
         require(_warIndex > dotxLib.getWarIndex(), "War index already exists");
         
         //Create war  
@@ -234,12 +236,12 @@ contract DoTxGameContract is Ownable {
      **/
     function buyTickets(string memory _houseTicker, uint _numberOfTicket, uint256 warIndex) public onlyIfTicketsPurchasable(warIndex) {
         bytes32 houseTicker = stringToBytes32(_houseTicker);
-        
+        //Get house storage
         House storage userHouse = getHouseStg(houseTicker, warIndex);
         
         //Allow user to only buy tickets for one single House and the one passed in parameter
         bytes32 userHouseTicker = wars[warIndex].users[msg.sender].houseTicker;
-        require(userHouse.houseTicker == houseTicker && (userHouseTicker == houseTicker || userHouseTicker == 0), "You can't buy tickets for the other house");
+        require(userHouse.houseTicker == houseTicker && (userHouseTicker == houseTicker || userHouseTicker == 0), "You can not buy tickets for the other house");
 
         wars[warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
 
@@ -299,7 +301,7 @@ contract DoTxGameContract is Ownable {
     }
     
     /**
-     * Allow users who pledged allegiance to the winning house to claimr bought tickets + reward
+     * Allow users who pledged allegiance to the winning house to claim bought tickets + reward
      * Parameters :
      **/
     function claimRewardAndTickets(uint256 warIndex) public onlyIfCurrentWarFinished(warIndex) returns(bool) {
@@ -312,7 +314,7 @@ contract DoTxGameContract is Ownable {
         //Set rewardClaimed to true
         wars[warIndex].users[msg.sender].rewardClaimed = true;
         
-        //DoTx in user balance
+        //DoTx in user balance (tickets bought) & reward
         uint256 reward = getCurrentReward(wars[warIndex].winningHouse, msg.sender, warIndex);
         uint256 balance = getUserDoTxInBalance(warIndex, msg.sender);
         
@@ -372,7 +374,7 @@ contract DoTxGameContract is Ownable {
         dotxToken.transfer(BURN_ADDRESS, burnValue);
         
         /*
-        BURN X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESS
+        SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESS
         */
         uint256 stakingValue = calculateBurnStaking(losingHouse, true, warIndex);
         dotxToken.transfer(stakingAddress, stakingValue);
@@ -454,13 +456,15 @@ contract DoTxGameContract is Ownable {
     }
     
     /**
-     * Return house forrent specific war
+     * Return house for a specific war
      **/
     function getHouse(uint256 _warIndex, string memory houseTicker) public view returns(House memory){
         bytes32 ticker = stringToBytes32(houseTicker);
         return wars[_warIndex].firstHouse.houseTicker == ticker ? wars[_warIndex].firstHouse : wars[_warIndex].secondHouse;
     }
-    
+    /**
+     * Return burn stake information
+     **/
     function getBurnStake(uint256 warIndex) public view returns(BurnStake memory){
         return BurnStake(calculateBurnStaking(wars[warIndex].firstHouse, true, warIndex), calculateBurnStaking(wars[warIndex].firstHouse, false, warIndex),
         calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, false, warIndex));
@@ -470,7 +474,7 @@ contract DoTxGameContract is Ownable {
         WarHouses[20] memory houses;
         uint256 i = min;
         uint256 index = 0;
-        while(i <= (max - min) + 1){
+        while(index < 20 && i <= (max - min) + 1){
             houses[index] = (WarHouses(i, wars[i].firstHouse.houseTicker, wars[i].secondHouse.houseTicker, wars[i].startTime, wars[i].duration));
             i++;
             index++;
@@ -522,6 +526,7 @@ contract DoTxGameContract is Ownable {
      * Let owner withdraw DoTx fees (in particular to pay the costs generated by Chainlink)
      **/
     function withdrawFees() public onlyOwner {
+        //Fees from switch house
         dotxToken.transfer(owner(), totalFees);
         
         totalFees = 0;

@@ -66,11 +66,9 @@ contract Ownable is Context {
  * @author Maxime Reynders - DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
  */
 contract DoTxLib is ChainlinkClient, Ownable {
-    bool isOnChain = true;
     //DOTX Game Contract
     IDotxGame private dotxGame;
-    address doTxGameAddress;
-    
+
     //CHAINLINK VARS
     // The address of an oracle - you can find node addresses on https://market.link/search/nodes
     //address ORACLE_ADDRESS = 0xB36d3709e22F7c708348E225b20b13eA546E6D9c; ROPSTEN
