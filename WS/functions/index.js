@@ -44,25 +44,6 @@ exports.getCurrentPrice = functions.https.onRequest((req, response) => {
     });
 });
 
-exports.getWhitelist = functions.https.onRequest((req, response) => {
-    db.collection('whitelist').get()
-    .then(snapshot => {
-        var testers = "Whitelisted addresses : "+snapshot.size+"<br/><br/>"
-        snapshot.forEach(doc => {
-            console.log(doc.id, '=>', doc.data());
-            testers+= doc.id+" || DoTx Owned : "+doc.data().dotxOwned+" || Join at : "+doc.data().registrationDate.toDate()+"<br/>";
-        });
-        response.send(testers);
-        response.status(200).end();
-    })
-    .catch(err => {
-        console.log('Error getting documents', err);
-        response.send('Error getting documents' + err);
-        response.status(200).end();
-    });    
-});
-
-
 exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => {
     myContract.methods.balanceOf(MARKETING_CONTRACT_ADDRESS).call().then(function(marketingContratBalance) {
         myContract.methods.balanceOf(TEAM_CONTRACT_ADDRESS).call().then(function(teamContratBalance) {
