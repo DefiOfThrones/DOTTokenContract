@@ -61,8 +61,7 @@ contract Ownable is Context {
 contract EarlyPoolContract is Ownable {
     using SafeMath for uint256;
     
-    //User struct, each war contains a map of users
-    //Each user can pledge allegiance to a house, buy tickets and switch house by paying fees (x% of its bought tickets)
+    //User struct, each long night contains a map of users/stake
     struct Pool {
         uint256 startTime;
         uint256 duration;
@@ -70,7 +69,6 @@ contract EarlyPoolContract is Ownable {
         uint256 balance;
         uint256 staked;
         uint256 totalTickets;
-        //User Balance
         mapping(address => User) users;
     }
     
@@ -90,7 +88,9 @@ contract EarlyPoolContract is Ownable {
     
     //Map of Pools 
     mapping(uint256 => Pool) public pools;
+    //Staking info
     Staking[3] staking;
+    //Current Long Night
     uint public longNightIndex;
     
     IDoTxTokenContract private doTxToken;
@@ -119,7 +119,7 @@ contract EarlyPoolContract is Ownable {
     }
     
     /**
-    * AddEarlyDoTx - When an user buy ticket in war
+    * AddEarlyDoTx - When an user buy tickets in war
     * Parameters :
     * _dotx Number of DoTx
     * _longNightIndex Long night index
