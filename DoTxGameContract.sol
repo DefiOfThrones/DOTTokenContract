@@ -383,8 +383,8 @@ contract DoTxGameContract is Ownable {
         SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESSES
         */
         uint256 stakingValue = calculateBurnStaking(losingHouse, false, warIndex);
-        earlyPool.addDoTxToPool(stakingValue.sub(2), earlyPool.getLongNightIndex());
-        //dotxToken.transfer(goldPoolAddress, stakingValue / 2); //TO TEST
+        earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex());
+        //earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex()); //TODO GOLD POOL
         
         emit StakeBurn(warIndex, burnValue, stakingValue);
     }
