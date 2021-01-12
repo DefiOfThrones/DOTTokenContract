@@ -16,6 +16,12 @@ interface IDoTxLib{
     function getWarIndex() external view returns(uint256);
 }
 
+interface IEarlyPoolContract{
+    function setDoTxGame(address gameAddress) external;
+    function addDoTxToPool(uint256 _dotx, uint256 _index) external;
+    function getLongNightIndex() external view returns(uint256);
+}
+
 contract Context {
     constructor () internal { }
 
@@ -136,8 +142,8 @@ contract DoTxGameContract is Ownable {
     IDotTokenContract private dotxToken;
     //DOTX Game lib
     IDoTxLib private dotxLib;
-    //x% of the losing house tickets are sent to the throne vault
-    address stakingAddress = address(0x1c2206f3115CaC3750acCb899d18d50b774C2f21);
+    //EarlyPool 
+    IEarlyPoolContract private earlyPool;
     
     //Map of Wars 
     mapping(uint256 => War) public wars;
@@ -188,11 +194,11 @@ contract DoTxGameContract is Ownable {
      * Game contract constructor
      * Just pass the DoTx token contract address in parameter
      **/
-    constructor(address dotxTokenAddress, address dotxLibAddr, bool setupAddressInLib) public {
+    constructor(address dotxTokenAddress, address dotxLibAddr, address earlyPoolAddr, bool setupAddressInLib, bool setupAddressInPool) public {
         //Implement DoTx contract interface by providing address
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
-        setDoTxLib(dotxLibAddr, setupAddressInLib);
+        setDoTxLibs(dotxLibAddr, setupAddressInLib, earlyPoolAddr, setupAddressInPool, true);
     }
     
     /**************************
@@ -228,12 +234,12 @@ contract DoTxGameContract is Ownable {
         return true;
     }
     
-     /**
-     * Buy ticket(s) for the current war - only if tickets are purchasable -> purchasePeriod
-     * Parameters :
-     * _houseTicker House ticker 
-     * _numberOfTicket The number of tickets the user wants to buy
-     **/
+    /**
+    * Buy ticket(s) for the current war - only if tickets are purchasable -> purchasePeriod
+    * Parameters :
+    * _houseTicker House ticker 
+    * _numberOfTicket The number of tickets the user wants to buy
+    **/
     function buyTickets(string memory _houseTicker, uint _numberOfTicket, uint256 warIndex) public onlyIfTicketsPurchasable(warIndex) {
         bytes32 houseTicker = stringToBytes32(_houseTicker);
         //Get house storage
@@ -374,10 +380,11 @@ contract DoTxGameContract is Ownable {
         dotxToken.transfer(BURN_ADDRESS, burnValue);
         
         /*
-        SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESS
+        SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESSES
         */
-        uint256 stakingValue = calculateBurnStaking(losingHouse, true, warIndex);
-        dotxToken.transfer(stakingAddress, stakingValue);
+        uint256 stakingValue = calculateBurnStaking(losingHouse, false, warIndex);
+        earlyPool.addDoTxToPool(stakingValue.sub(2), earlyPool.getLongNightIndex());
+        //dotxToken.transfer(goldPoolAddress, stakingValue / 2); //TO TEST
         
         emit StakeBurn(warIndex, burnValue, stakingValue);
     }
@@ -535,21 +542,24 @@ contract DoTxGameContract is Ownable {
     /**
      * Let owner set the DoTxLib address
      **/
-    function setDoTxLib(address dotxLibAddr, bool setupAddressInLib) public onlyOwner {
+    function setDoTxLibs(address dotxLibAddr, bool setupAddressInLib, address earlyPoolAddr, bool setupAddressInPool, bool approveEarly) public onlyOwner {
         //DOTX lib mainly uses for Chainlink
         dotxLibAddress = dotxLibAddr;
         dotxLib = IDoTxLib(dotxLibAddress);
         if(setupAddressInLib){
             dotxLib.setDoTxGame(address(this));
         }
+        
+        //Early Pool
+        earlyPool = IEarlyPoolContract(earlyPoolAddr);
+        if(setupAddressInPool){
+            earlyPool.setDoTxGame(address(this));
+        }
+        if(approveEarly){
+            dotxToken.approve(earlyPoolAddr, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
+        }
     }
-    
-    /**
-     * Let owner update stakingAddress
-     **/
-    function setStakingAddress(address stakingAdr) public onlyOwner {
-        stakingAddress = stakingAdr;
-    }
+
 
     /****************************
             UTILS METHODS

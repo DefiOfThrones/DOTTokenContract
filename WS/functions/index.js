@@ -15,7 +15,7 @@ var provider = new Web3.providers.HttpProvider(BLOCKCHAIN_PROVIDER);
 var web3 = new Web3(provider);
 var myContract = new web3.eth.Contract(ABI.getABI(), DOTX_CONTRACT_ADDRESS);
 
-
+/*
 exports.getCurrentPrice = functions.https.onRequest((req, response) => {
     fsym = req.query.fsym.toLowerCase();
     tsym = req.query.tsym.toLowerCase();
@@ -59,4 +59,37 @@ exports.getDotxCirculationSupply = functions.https.onRequest((req, response) => 
             })
         })
     })
+});*/
+/*
+exports.getDotxMaxSupply = functions.https.onRequest((req, response) => {
+    response.send("{\"DoTxCirculationSupply\" : "+MAX_SUPPLY+"}");
+    response.status(200).end();
+});*/
+exports.getCurrentPriceExp = functions.https.onRequest((req, response) => {
+    fsym = req.query.fsym.toLowerCase();
+    tsym = req.query.tsym.toLowerCase();
+    fsymId = req.query.fsymId ? req.query.fsymId.toLowerCase() : "";
+    
+
+    request("https://api.coingecko.com/api/v3/coins/list", { json: true }, (err, res, body) => {
+        var found = false;
+        body.forEach(coin => {
+            if(coin.symbol.toLowerCase() === fsym && (fsymId == "" || (fsymId == coin.id.toLowerCase()))){
+                found = true;
+                return request("https://api.coingecko.com/api/v3/simple/price?ids="+coin.id+"&vs_currencies="+tsym, { json: true }, (err, res, body) => {
+                    if (err) { 
+                        console.log(err); 
+                        return response.status(500).end();
+                    }
+                    body[coin.id]["usd"] = Number(body[coin.id]["usd"])  * 10000
+                    response.set('Access-Control-Allow-Origin', '*');
+                    response.send(body[coin.id]);
+                    response.status(200).end();
+                });
+            }
+        });
+        if(!found){
+            response.status(500).end();
+        }
+    });
 });
