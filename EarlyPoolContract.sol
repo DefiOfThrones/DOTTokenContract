@@ -217,12 +217,4 @@ contract EarlyPoolContract is Ownable {
     function getLongNightIndex() external view returns(uint256){
         return longNightIndex;
     }
-    
-    function getRunningPool(uint256 _index) private returns(Pool storage){
-        uint256 index = isLongNightFinished(_index) ? _index.add(1) : _index;
-        if(pools[index].startTime == 0){
-            pools[index] = Pool(1, 0, 0, 0, 0, 0);
-        }
-        return pools[index];
-    }
 }
