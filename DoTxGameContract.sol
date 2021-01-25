@@ -18,7 +18,8 @@ interface IDoTxLib{
 
 interface IEarlyPoolContract{
     function setDoTxGame(address gameAddress) external;
-    function addDoTxToPool(uint256 _dotx, uint256 _index) external;
+    function addEarlyTickets(uint256 _dotx, uint256 _index, address _user, uint256 _warIndex, uint256 _endWarTime) external;
+    function addDoTxToPool(uint256 _dotx, uint256 _index, uint256 _warIndex, uint256 _endWarTime) external;
     function getLongNightIndex() external view returns(uint256);
 }
 
@@ -158,6 +159,10 @@ contract DoTxGameContract is Ownable {
     uint256 public stakingPercentage = 5;
     int256 public multiplicator = 10000;
     
+    //EARLY POOL
+    uint256 maxPercentJoinEarly = 25;//25%
+    uint256 minDoTxEarly = 500000000000000000000;// 500 DoTx
+    
     //EVENTS
     event WarStarted(uint256 warIndex);
     event TicketBought(uint256 warIndex, string house, uint256 valueInDoTx, address sender, string txType);
@@ -264,6 +269,11 @@ contract DoTxGameContract is Ownable {
         
         //Transfer DoTx
         dotxToken.transferFrom(msg.sender, address(this), valueInDoTx);
+        
+        //Early POOL
+        if(isEarliable(valueInDoTx, warIndex)){
+            earlyPool.addEarlyTickets(valueInDoTx, earlyPool.getLongNightIndex(), msg.sender, warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
+        }
     }
     
     /**
@@ -383,12 +393,16 @@ contract DoTxGameContract is Ownable {
         SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESSES
         */
         uint256 stakingValue = calculateBurnStaking(losingHouse, false, warIndex);
-        earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex());
-        //earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex()); //TODO GOLD POOL
+        sendToStakingPools(stakingValue, warIndex);
+        
         
         emit StakeBurn(warIndex, burnValue, stakingValue);
     }
 
+    function sendToStakingPools(uint256 stakingValue, uint256 warIndex) private{
+        earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex(), warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
+        //earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex()); //TODO GOLD POOL
+    }
     
     /*******************************
             CHAINLINK METHODS
@@ -559,6 +573,14 @@ contract DoTxGameContract is Ownable {
             dotxToken.approve(earlyPoolAddr, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
         }
     }
+    
+    /**
+     * Configure early pool requierements
+     **/
+    function setEarlyConfig(uint256 _maxPercentJoinEarly, uint256 _minDoTxEarly) public{
+        maxPercentJoinEarly = _maxPercentJoinEarly;
+        minDoTxEarly = _minDoTxEarly;
+    }
 
 
     /****************************
@@ -576,6 +598,14 @@ contract DoTxGameContract is Ownable {
         return wars[warIndex].firstHouse.houseTicker == _houseTicker || wars[warIndex].secondHouse.houseTicker == _houseTicker;
     }
     
+     /**
+     * Check if the user isEarly in the current war
+     **/
+    function isEarliable(uint256 _doTxSpent, uint256 warIndex) private view returns(bool){
+        bool isEarlyPeriod = wars[warIndex].startTime.add(((wars[warIndex].duration.mul(10000)).mul(maxPercentJoinEarly).div(100)).div(10000))  > now;
+        return _doTxSpent >= minDoTxEarly && isEarlyPeriod;
+    }
+
     /**
      * Calculate the reward for the current user
      **/

@@ -1,4 +1,5 @@
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
 
@@ -65,7 +66,7 @@ contract EarlyPoolContract is Ownable {
     struct Pool {
         uint256 startTime;
         uint256 duration;
-        uint256 startStakePeriod;
+        uint256 joinStakePeriod;
         uint256 balance;
         uint256 staked;
         uint256 totalTickets;
@@ -95,25 +96,36 @@ contract EarlyPoolContract is Ownable {
     
     IDoTxTokenContract private doTxToken;
     
+    uint256 warOffset = 1;//TODO 1200
+    
     uint256 public rewardPrecision = 100000000;
+    
+    event AddEarlyTickets(uint256 poolIndex, uint256 warIndex, uint256 valueInDoTx, address sender);
+    event AddDoTxToPool(uint256 poolIndex, uint256 warIndex, uint256 valueInDoTx);
+    event StartStaking(uint256 poolIndex, uint256 farmingBag, uint256 stakedAmount, uint256 stakeIndex, uint256 startTime, address user);
+    event WithdrawStaking(uint256 poolIndex, address user);
 
     constructor(address dotxTokenAddress) public {
         doTxToken = IDoTxTokenContract(dotxTokenAddress);
         
-        staking[0] = Staking(2678400, 2123);
+        /*staking[0] = Staking(2678400, 2123);
         staking[1] = Staking(5356800, 10192);
-        staking[2] = Staking(8035200, 25479);
+        staking[2] = Staking(8035200, 25479);*/
+        //TODO UNDO
+        staking[0] = Staking(100, 2123);
+        staking[1] = Staking(200, 10192);
+        staking[2] = Staking(300, 25479);
     }
     
     function startLongNight(uint256 _duration, uint256 _stakePeriod) public onlyOwner{
         //Staking period must be finished
-        require(isStartStakingPeriodFinished(longNightIndex), "Staking period not finished");
+        // TODO UNCOMMENT require(isStartStakingPeriodFinished(longNightIndex), "Staking period not finished");
 
         longNightIndex++;
         //Start long night
         pools[longNightIndex].startTime = now;
         pools[longNightIndex].duration = _duration;
-        pools[longNightIndex].startStakePeriod = _stakePeriod;
+        pools[longNightIndex].joinStakePeriod = _stakePeriod;
         //Add remaining dotx from previous war to current balance
         pools[longNightIndex].balance = pools[longNightIndex].balance.add(pools[longNightIndex - 1].balance.sub(pools[longNightIndex - 1].staked));
     }
@@ -125,10 +137,12 @@ contract EarlyPoolContract is Ownable {
     * _longNightIndex Long night index
     * _user User address
     **/
-    function addEarlyTickets(uint256 _dotx, uint256 _index, address _user) public onlyOwner{
-        uint256 index = isLongNightFinished(_index) ? _index.add(1) : _index;
+    function addEarlyTickets(uint256 _dotx, uint256 _index, address _user, uint256 _warIndex, uint256 _endWarTime) public onlyOwner{
+        uint256 index = !isWarEligibleToLongNight(_endWarTime, _index) ? _index.add(1) : _index;
         pools[index].users[_user].userTickets = pools[index].users[_user].userTickets.add(_dotx);
         pools[index].totalTickets = pools[index].totalTickets.add(_dotx);
+        
+        emit AddEarlyTickets(_index, _warIndex, _dotx, _user);
     }
     
     /**
@@ -137,11 +151,13 @@ contract EarlyPoolContract is Ownable {
     * _dotx Number of DoTx
     * _longNightIndex Long night index
     **/
-    function addDoTxToPool(uint256 _dotx, uint256 _index) external onlyOwner{
-        uint256 index = isLongNightFinished(_index) ? _index.add(1) : _index;
+    function addDoTxToPool(uint256 _dotx, uint256 _index, uint256 _warIndex, uint256 _endWarTime) external onlyOwner{
+        uint256 index = !isWarEligibleToLongNight(_endWarTime, _index) ? _index.add(1) : _index;
         pools[index].balance = pools[index].balance.add(_dotx);
        
         doTxToken.transferFrom(msg.sender, address(this), _dotx);
+        
+        emit AddDoTxToPool(_index, _warIndex, _dotx);
     }
     
     function startStaking(uint256 _stakingIndex, uint256 _index) public{
@@ -149,19 +165,23 @@ contract EarlyPoolContract is Ownable {
         require(isLongNightFinished(_index), "Long night not finished");
         //Staking period must not be finished
         require(!isStartStakingPeriodFinished(_index), "Start staking period finished");
+        //Staking period must not be finished
+        require(pools[_index].users[msg.sender].startTime == 0, "Staking already done");
         
         //Get farming bag
         pools[_index].users[msg.sender].farmingBag = getFarmingBag(_index, msg.sender);
         
         //Calculate DoTx to stake -> DoTx in farming bag / Staking Period ROI % = DoTx to stake
         pools[_index].users[msg.sender].stakedAmount = getDoTxToStake(_stakingIndex, pools[_index].users[msg.sender].farmingBag);
-        pools[_index].users[msg.sender].stakeIndex = _index;
+        pools[_index].users[msg.sender].stakeIndex = _stakingIndex;
         pools[_index].users[msg.sender].startTime = now;
         
         //Add farmingBag to balance staked
         pools[_index].staked = pools[_index].staked.add(pools[_index].users[msg.sender].farmingBag);
         
         require(doTxToken.transferFrom(msg.sender, address(this), pools[_index].users[msg.sender].stakedAmount));
+        
+        emit StartStaking(_index, pools[_index].users[msg.sender].farmingBag, pools[_index].users[msg.sender].stakedAmount, pools[_index].users[msg.sender].stakeIndex, pools[_index].users[msg.sender].startTime, msg.sender);
     }
     
     function withdrawStakes(uint256[] memory _indexes) public{
@@ -177,6 +197,8 @@ contract EarlyPoolContract is Ownable {
         pools[_index].users[msg.sender].withdraw = true;
         
         doTxToken.transfer(msg.sender, pools[_index].users[msg.sender].stakedAmount + pools[_index].users[msg.sender].farmingBag);
+        
+        emit WithdrawStaking(_index, msg.sender);
     }
     
     function getFarmingBag(uint256 _index, address _userAddress) public view returns(uint256){
@@ -187,6 +209,21 @@ contract EarlyPoolContract is Ownable {
         //Calculate farming bag
         uint256 percent = (userTickets.mul(rewardPrecision)).div(usersTickets);
         return (poolBalance.mul(percent)).div(rewardPrecision);
+    }
+    
+    function isWarEligibleToLongNight(uint256 _endWarTime, uint256 _index) public view returns(bool){
+        return (_endWarTime + warOffset) < pools[_index].startTime.add(pools[_index].duration);
+    }
+    
+    function setWarOffset(uint256 _warOffset) public onlyOwner{
+        warOffset = _warOffset;
+    }
+    
+    /**
+     * Returns the current user for a specific pool
+     **/
+    function getUser(uint256 _index, address userAddress) public view returns(User memory){
+        return pools[_index].users[userAddress];
     }
     
     function getDoTxToStake(uint256 _stakingIndex, uint256 _farmingBagDoTx) public view returns(uint256) {
@@ -202,7 +239,7 @@ contract EarlyPoolContract is Ownable {
     }
     
     function isStartStakingPeriodFinished(uint256 _index) public view returns(bool) {
-        return pools[_index].startTime.add(pools[_index].duration).add(pools[_index].startStakePeriod) < now;
+        return pools[_index].startTime.add(pools[_index].duration).add(pools[_index].joinStakePeriod) < now;
     }
     
     function isStakingFinished(uint256 _index, address userAddress) public view returns(bool) {
