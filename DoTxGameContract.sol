@@ -156,12 +156,12 @@ contract DoTxGameContract is Ownable {
     uint256 public selecteWinnerPrecision = 100000;
     
     uint256 public burnPercentage = 5;
-    uint256 public stakingPercentage = 5;
+    uint256 public stakingPercentage = 10;
     int256 public multiplicator = 10000;
     
     //EARLY POOL
-    uint256 maxPercentJoinEarly = 25;//25%
-    uint256 minDoTxEarly = 500000000000000000000;// 500 DoTx
+    uint256 public maxPercentJoinEarly = 25;//25%
+    uint256 public minDoTxEarly = 500000000000000000000;// 500 DoTx
     
     //EVENTS
     event WarStarted(uint256 warIndex);
@@ -317,6 +317,16 @@ contract DoTxGameContract is Ownable {
     }
     
     /**
+     * Allow users to claim all bought tickets + all rewards
+     * Parameters : array of indexes
+     **/
+    function claimAllRewardAndTickets(uint256[] memory _indexes) public{
+        for(uint256 i=0; i < _indexes.length; i++){
+            claimRewardAndTickets(_indexes[i]);
+        }
+    }
+    
+    /**
      * Allow users who pledged allegiance to the winning house to claim bought tickets + reward
      * Parameters :
      **/
@@ -400,7 +410,7 @@ contract DoTxGameContract is Ownable {
     }
 
     function sendToStakingPools(uint256 stakingValue, uint256 warIndex) private{
-        earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex(), warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
+        earlyPool.addDoTxToPool(stakingValue, earlyPool.getLongNightIndex(), warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
         //earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex()); //TODO GOLD POOL
     }
     

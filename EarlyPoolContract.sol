@@ -90,13 +90,13 @@ contract EarlyPoolContract is Ownable {
     //Map of Pools 
     mapping(uint256 => Pool) public pools;
     //Staking info
-    Staking[3] staking;
+    Staking[3] public staking;
     //Current Long Night
     uint public longNightIndex;
     
     IDoTxTokenContract private doTxToken;
     
-    uint256 warOffset = 1;//TODO 1200
+    uint256 warOffset = 600;
     
     uint256 public rewardPrecision = 100000000;
     
@@ -112,14 +112,14 @@ contract EarlyPoolContract is Ownable {
         staking[1] = Staking(5356800, 10192);
         staking[2] = Staking(8035200, 25479);*/
         //TODO UNDO
-        staking[0] = Staking(100, 2123);
-        staking[1] = Staking(200, 10192);
-        staking[2] = Staking(300, 25479);
+        staking[0] = Staking(3600, 2123);
+        staking[1] = Staking(4000, 10192);
+        staking[2] = Staking(4400, 25479);
     }
     
     function startLongNight(uint256 _duration, uint256 _stakePeriod) public onlyOwner{
         //Staking period must be finished
-        // TODO UNCOMMENT require(isStartStakingPeriodFinished(longNightIndex), "Staking period not finished");
+        require(isStartStakingPeriodFinished(longNightIndex), "Staking period not finished");
 
         longNightIndex++;
         //Start long night
@@ -253,5 +253,13 @@ contract EarlyPoolContract is Ownable {
     
     function getLongNightIndex() external view returns(uint256){
         return longNightIndex;
+    }
+    
+    function getStakingTimes() external view returns(uint256[3] memory){
+        uint256[3] memory arr;
+        arr[0] = staking[0].duration;
+        arr[1] = staking[1].duration;
+        arr[2] = staking[2].duration;
+        return arr;
     }
 }
