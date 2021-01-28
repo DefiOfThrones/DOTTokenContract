@@ -1,0 +1,183 @@
+pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
+
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
+
+interface IDoTxTokenContract{
+  function transfer(address recipient, uint256 amount) external returns (bool);
+  function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+contract Context {
+    constructor () internal { }
+
+    function _msgSender() internal view virtual returns (address payable) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes memory) {
+        this; 
+        return msg.data;
+    }
+}
+
+contract Ownable is Context {
+    address private _owner;
+    address public dotxGameAddress;
+    address public nftContractAddress;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    constructor () internal {
+        address msgSender = _msgSender();
+        _owner = msgSender;
+        emit OwnershipTransferred(address(0), msgSender);
+    }
+
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    modifier onlyOwner() {
+        require(_owner == _msgSender() 
+        || dotxGameAddress == _msgSender() || dotxGameAddress == address(0) 
+        || nftContractAddress == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
+
+/**
+ * @title DeFi Of Thrones Mana Pool Contract
+ * @author Maxime Reynders - DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
+ */
+contract ManaPoolContract is Ownable {
+    using SafeMath for uint256;
+    
+    //Stake Struct
+    struct Stake {
+        uint256 startTime;
+        uint256 lpAmount;
+        uint256 currentReward;
+    }
+    
+    IDoTxTokenContract private lpToken;
+
+    //Map of Stake per user address 
+    mapping(address => Stake) public stakes;
+    
+    
+    event addRewardFromDoTx(uint256 warIndex, uint256 valueInDoTx, address sender);
+    
+    constructor(/*address dotxTokenAddress*/) public {
+        lpToken = IDoTxTokenContract(0x01390C0D3b5De4419E421861CbfFAe29e3524D17);
+    }
+    
+    /**
+    * addTokens - When an user wants to stake LP
+    * Parameters :
+    * _amountInWei Number of LP tokens
+    **/
+    function addTokens(uint256 _amountInWei) public {
+        if(stakes[msg.sender].lpAmount != 0){
+            stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
+        }
+        //UNCOMMENT
+        require(lpToken.transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
+        
+        stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.add(_amountInWei);
+        stakes[msg.sender].startTime = now;
+    }
+    
+    /**
+    * addTokens - When an user wants to remove LP
+    * Parameters :
+    * _amountInWei Number of LP tokens
+    **/
+    function removeTokens(uint256 _amountInWei) public {
+        require(_amountInWei >= stakes[msg.sender].lpAmount, "Not enought LP");
+        
+        stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
+        stakes[msg.sender].startTime = now;
+        stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
+        //UNCOMMENT
+        require(lpToken.transfer(msg.sender, _amountInWei), "Transfer failed");
+    }
+    
+    /**
+    * addRewardFromTickets - When an user buys tickets from the game
+    * Parameters :
+    * _amountInWei Number of LP tokens
+    **/
+    function addRewardFromTickets(uint256 _warIndex, uint256 _dotxAmountInWei, address _userAddress) public onlyOwner{
+        uint256 newReward = _dotxAmountInWei; // TODO REWARD PER DOTX ?
+        
+        stakes[_userAddress].currentReward = getCurrentReward(_userAddress);
+        stakes[_userAddress].startTime = now;
+        stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
+        
+        emit addRewardFromDoTx(_warIndex, _dotxAmountInWei, _userAddress);
+    }
+    
+    /**
+    * useReward - When an user want to use its reward
+    * Parameters :
+    * _rewardAmount Number of Reward
+    **/
+    function useReward(uint256 _rewardAmount, address userAddress) public onlyOwner returns(bool){
+        stakes[userAddress].currentReward = getCurrentReward(userAddress);
+        require(_rewardAmount >= stakes[userAddress].currentReward, "Not enought Reward");
+        
+        stakes[userAddress].currentReward = stakes[userAddress].currentReward.sub(_rewardAmount);
+        stakes[userAddress].startTime = now;
+        
+        return true;
+    }
+    
+    function getLastTime() view public returns(uint256){
+        return now.sub(stakes[msg.sender].startTime);
+    }
+    
+    function getCurrentReward(address _userAddress) view public returns(uint256){
+        uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
+        
+        uint256 _amount = stakes[_userAddress].lpAmount;
+        uint precision = 100000000000000000000000000;
+        uint256 denom = 100000000;
+        uint256 amount = _amount.mul(precision);
+        uint256 b = 2000000000000000000000;
+        uint256 a = 4;
+        //f(x) = x / (ax + b)
+        uint256 rewardPerSecond = amount.div(_amount.mul(a).add(b)).div(60).div(denom);
+        
+        //Previous reward + new reward
+        uint256 newReward = diffTimeSec.mul(rewardPerSecond);
+        return stakes[_userAddress].currentReward.add(newReward);
+    }
+    
+    /**
+     * Returns the current user for a specific pool
+     **/
+    function getStake(address userAddress) public view returns(Stake memory){
+        return stakes[userAddress];
+    }
+    
+    function setDoTxGame(address gameAddress) public onlyOwner{
+        dotxGameAddress = gameAddress;
+    }
+    
+    function setNftContractAddress(address nftAddress) public onlyOwner{
+        nftContractAddress = nftAddress;
+    }
+}
