@@ -142,7 +142,7 @@ contract EarlyPoolContract is Ownable {
         pools[index].users[_user].userTickets = pools[index].users[_user].userTickets.add(_dotx);
         pools[index].totalTickets = pools[index].totalTickets.add(_dotx);
         
-        emit AddEarlyTickets(_index, _warIndex, _dotx, _user);
+        emit AddEarlyTickets(index, _warIndex, _dotx, _user);
     }
     
     /**
@@ -157,7 +157,7 @@ contract EarlyPoolContract is Ownable {
        
         doTxToken.transferFrom(msg.sender, address(this), _dotx);
         
-        emit AddDoTxToPool(_index, _warIndex, _dotx);
+        emit AddDoTxToPool(index, _warIndex, _dotx);
     }
     
     function startStaking(uint256 _stakingIndex, uint256 _index) public{

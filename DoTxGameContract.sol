@@ -23,6 +23,11 @@ interface IEarlyPoolContract{
     function getLongNightIndex() external view returns(uint256);
 }
 
+interface IManaPoolContract{
+    function setDoTxGame(address gameAddress) external;
+    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress) external;
+}
+
 contract Context {
     constructor () internal { }
 
@@ -145,6 +150,8 @@ contract DoTxGameContract is Ownable {
     IDoTxLib private dotxLib;
     //EarlyPool 
     IEarlyPoolContract private earlyPool;
+    //ManaPool 
+    IManaPoolContract private manaPool;
     
     //Map of Wars 
     mapping(uint256 => War) public wars;
@@ -153,7 +160,7 @@ contract DoTxGameContract is Ownable {
     //Total fees paid by users
     uint256 public totalFees;
     //Precision for the select winner calculation
-    uint256 public selecteWinnerPrecision = 100000;
+    uint256 public selectWinnerPrecision = 100000;
     
     uint256 public burnPercentage = 5;
     uint256 public stakingPercentage = 10;
@@ -199,11 +206,11 @@ contract DoTxGameContract is Ownable {
      * Game contract constructor
      * Just pass the DoTx token contract address in parameter
      **/
-    constructor(address dotxTokenAddress, address dotxLibAddr, address earlyPoolAddr, bool setupAddressInLib, bool setupAddressInPool) public {
+    constructor(address dotxTokenAddress, address dotxLibAddr, address earlyPoolAddr, address manaPoolAddr, bool setupAddressInLib, bool setupAddressInPool) public {
         //Implement DoTx contract interface by providing address
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
-        setDoTxLibs(dotxLibAddr, setupAddressInLib, earlyPoolAddr, setupAddressInPool, true);
+        setDoTxLibs(dotxLibAddr, setupAddressInLib, earlyPoolAddr, manaPoolAddr, setupAddressInPool, true);
     }
     
     /**************************
@@ -274,6 +281,9 @@ contract DoTxGameContract is Ownable {
         if(isEarliable(valueInDoTx, warIndex)){
             earlyPool.addEarlyTickets(valueInDoTx, earlyPool.getLongNightIndex(), msg.sender, warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
         }
+        
+        //Mana POOL
+        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender);
     }
     
     /**
@@ -384,7 +394,7 @@ contract DoTxGameContract is Ownable {
     function selectWinner(uint256 warIndex) public onlyOwner onlyIfCurrentWarFinished(warIndex) onlyIfPricesFetched(warIndex) {
         require(wars[warIndex].winningHouse == 0, "Winner already selected");
         
-        int256 precision = int256(selecteWinnerPrecision);
+        int256 precision = int256(selectWinnerPrecision);
         
         int256 firstHousePerf =  dotxLib.calculateHousePerf(int256(wars[warIndex].firstHouse.openPrice), int256(wars[warIndex].firstHouse.closePrice), precision);
         int256 secondHousePerf = dotxLib.calculateHousePerf(int256(wars[warIndex].secondHouse.openPrice), int256(wars[warIndex].secondHouse.closePrice), precision);
@@ -520,7 +530,7 @@ contract DoTxGameContract is Ownable {
      * Set the select winner precision used for calculate the best house's performance
      **/
     function setSelectWinnerPrecision(uint256 _precision) public onlyOwner{
-        selecteWinnerPrecision = _precision;
+        selectWinnerPrecision = _precision;
     }
 
      /**
@@ -566,7 +576,7 @@ contract DoTxGameContract is Ownable {
     /**
      * Let owner set the DoTxLib address
      **/
-    function setDoTxLibs(address dotxLibAddr, bool setupAddressInLib, address earlyPoolAddr, bool setupAddressInPool, bool approveEarly) public onlyOwner {
+    function setDoTxLibs(address dotxLibAddr, bool setupAddressInLib, address earlyPoolAddr, address manaPoolAddr, bool setupAddressInPool, bool approveEarly) public onlyOwner {
         //DOTX lib mainly uses for Chainlink
         dotxLibAddress = dotxLibAddr;
         dotxLib = IDoTxLib(dotxLibAddress);
@@ -576,8 +586,10 @@ contract DoTxGameContract is Ownable {
         
         //Early Pool
         earlyPool = IEarlyPoolContract(earlyPoolAddr);
+        manaPool = IManaPoolContract(manaPoolAddr);
         if(setupAddressInPool){
             earlyPool.setDoTxGame(address(this));
+            manaPool.setDoTxGame(address(this));
         }
         if(approveEarly){
             dotxToken.approve(earlyPoolAddr, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
@@ -639,7 +651,7 @@ contract DoTxGameContract is Ownable {
         uint256 ticketsBoughtValueDoTx = house.ticketsBought.mul(wars[warIndex].ticketPrice);
         uint256 percentage =  isBurn ? wars[warIndex].burnPercentage : wars[warIndex].stakingPercentage;
         //Calculate tickets remaining after burn
-        return dotxLib.calculatePercentage(ticketsBoughtValueDoTx, percentage, selecteWinnerPrecision);
+        return dotxLib.calculatePercentage(ticketsBoughtValueDoTx, percentage, selectWinnerPrecision);
     }
     
     /**

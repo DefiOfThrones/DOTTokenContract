@@ -76,9 +76,12 @@ contract ManaPoolContract is Ownable {
 
     //Map of Stake per user address 
     mapping(address => Stake) public stakes;
+    uint256 public manaBonus = 1;
     
-    
-    event addRewardFromDoTx(uint256 warIndex, uint256 valueInDoTx, address sender);
+    event AddTokens(uint256 valueInDoTx, address sender);
+    event RemoveTokens(uint256 valueInDoTx, address sender);
+    event UseReward(uint256 _rewardAmount, address sender);
+    event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
     constructor(/*address dotxTokenAddress*/) public {
         lpToken = IDoTxTokenContract(0x01390C0D3b5De4419E421861CbfFAe29e3524D17);
@@ -98,6 +101,8 @@ contract ManaPoolContract is Ownable {
         
         stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.add(_amountInWei);
         stakes[msg.sender].startTime = now;
+        
+        emit AddTokens(_amountInWei, msg.sender);
     }
     
     /**
@@ -106,13 +111,15 @@ contract ManaPoolContract is Ownable {
     * _amountInWei Number of LP tokens
     **/
     function removeTokens(uint256 _amountInWei) public {
-        require(_amountInWei >= stakes[msg.sender].lpAmount, "Not enought LP");
+        require(stakes[msg.sender].lpAmount >= _amountInWei , "Not enought LP");
         
         stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         stakes[msg.sender].startTime = now;
         stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
         //UNCOMMENT
         require(lpToken.transfer(msg.sender, _amountInWei), "Transfer failed");
+        
+        emit RemoveTokens(_amountInWei, msg.sender);
     }
     
     /**
@@ -120,14 +127,14 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _amountInWei Number of LP tokens
     **/
-    function addRewardFromTickets(uint256 _warIndex, uint256 _dotxAmountInWei, address _userAddress) public onlyOwner{
-        uint256 newReward = _dotxAmountInWei; // TODO REWARD PER DOTX ?
+    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress) public onlyOwner{
+        uint256 newReward = _ticketsNumber.mul(manaBonus).mul(1000000000000000000); // 1 ticket == (1 MANA * MANABONUS)
         
         stakes[_userAddress].currentReward = getCurrentReward(_userAddress);
         stakes[_userAddress].startTime = now;
         stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
         
-        emit addRewardFromDoTx(_warIndex, _dotxAmountInWei, _userAddress);
+        emit AddRewardFromTickets(_warIndex, _ticketsNumber.mul(manaBonus), _dotxAmountInWei, _userAddress);
     }
     
     /**
@@ -137,10 +144,12 @@ contract ManaPoolContract is Ownable {
     **/
     function useReward(uint256 _rewardAmount, address userAddress) public onlyOwner returns(bool){
         stakes[userAddress].currentReward = getCurrentReward(userAddress);
-        require(_rewardAmount >= stakes[userAddress].currentReward, "Not enought Reward");
+        require(stakes[userAddress].currentReward >= _rewardAmount, "Not enought Reward");
         
         stakes[userAddress].currentReward = stakes[userAddress].currentReward.sub(_rewardAmount);
         stakes[userAddress].startTime = now;
+        
+        emit UseReward(_rewardAmount, userAddress);
         
         return true;
     }
@@ -152,18 +161,21 @@ contract ManaPoolContract is Ownable {
     function getCurrentReward(address _userAddress) view public returns(uint256){
         uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
         
-        uint256 _amount = stakes[_userAddress].lpAmount;
+        uint256 rewardPerSecond = calculateRewardPerSecond(stakes[_userAddress].lpAmount);
+        
+        //Previous reward + new reward
+        uint256 newReward = diffTimeSec.mul(rewardPerSecond);
+        return stakes[_userAddress].currentReward.add(newReward);
+    }
+    
+    function calculateRewardPerSecond(uint256 _amount) public pure returns(uint256){
         uint precision = 100000000000000000000000000;
         uint256 denom = 100000000;
         uint256 amount = _amount.mul(precision);
         uint256 b = 2000000000000000000000;
         uint256 a = 4;
         //f(x) = x / (ax + b)
-        uint256 rewardPerSecond = amount.div(_amount.mul(a).add(b)).div(60).div(denom);
-        
-        //Previous reward + new reward
-        uint256 newReward = diffTimeSec.mul(rewardPerSecond);
-        return stakes[_userAddress].currentReward.add(newReward);
+        return amount.div(_amount.mul(a).add(b)).div(60).div(denom);
     }
     
     /**
@@ -175,6 +187,10 @@ contract ManaPoolContract is Ownable {
     
     function setDoTxGame(address gameAddress) public onlyOwner{
         dotxGameAddress = gameAddress;
+    }
+    
+    function setManaBonus(uint256 _manaBonus) public onlyOwner{
+        manaBonus = _manaBonus;
     }
     
     function setNftContractAddress(address nftAddress) public onlyOwner{
