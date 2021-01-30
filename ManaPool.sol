@@ -76,7 +76,7 @@ contract ManaPoolContract is Ownable {
 
     //Map of Stake per user address 
     mapping(address => Stake) public stakes;
-    uint256 public manaBonus = 1;
+    mapping(uint256 => uint256) public manaBonus;
     
     event AddTokens(uint256 valueInDoTx, address sender);
     event RemoveTokens(uint256 valueInDoTx, address sender);
@@ -128,13 +128,14 @@ contract ManaPoolContract is Ownable {
     * _amountInWei Number of LP tokens
     **/
     function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress) public onlyOwner{
-        uint256 newReward = _ticketsNumber.mul(manaBonus).mul(1000000000000000000); // 1 ticket == (1 MANA * MANABONUS)
+        uint256 manaMultiplicator = manaBonus[_warIndex] != 0 ? manaBonus[_warIndex] : 1;
+        uint256 newReward = _ticketsNumber.mul(manaMultiplicator).mul(1000000000000000000); // 1 ticket == (1 MANA * MANABONUS)
         
         stakes[_userAddress].currentReward = getCurrentReward(_userAddress);
         stakes[_userAddress].startTime = now;
         stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
         
-        emit AddRewardFromTickets(_warIndex, _ticketsNumber.mul(manaBonus), _dotxAmountInWei, _userAddress);
+        emit AddRewardFromTickets(_warIndex, _ticketsNumber.mul(manaMultiplicator), _dotxAmountInWei, _userAddress);
     }
     
     /**
@@ -189,8 +190,8 @@ contract ManaPoolContract is Ownable {
         dotxGameAddress = gameAddress;
     }
     
-    function setManaBonus(uint256 _manaBonus) public onlyOwner{
-        manaBonus = _manaBonus;
+    function setManaBonus(uint256 _warIndex, uint256 _manaBonus) public onlyOwner{
+        manaBonus[_warIndex] = _manaBonus;
     }
     
     function setNftContractAddress(address nftAddress) public onlyOwner{
