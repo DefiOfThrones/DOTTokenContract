@@ -83,8 +83,8 @@ contract ManaPoolContract is Ownable {
     event UseReward(uint256 _rewardAmount, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
-    constructor(/*address dotxTokenAddress*/) public {
-        lpToken = IDoTxTokenContract(0x01390C0D3b5De4419E421861CbfFAe29e3524D17);
+    constructor(address dotxLpTokenAddress) public {
+        lpToken = IDoTxTokenContract(dotxLpTokenAddress);
     }
     
     /**
@@ -96,7 +96,7 @@ contract ManaPoolContract is Ownable {
         if(stakes[msg.sender].lpAmount != 0){
             stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         }
-        //UNCOMMENT
+
         require(lpToken.transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
         
         stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.add(_amountInWei);
@@ -116,7 +116,7 @@ contract ManaPoolContract is Ownable {
         stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         stakes[msg.sender].startTime = now;
         stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
-        //UNCOMMENT
+
         require(lpToken.transfer(msg.sender, _amountInWei), "Transfer failed");
         
         emit RemoveTokens(_amountInWei, msg.sender);
@@ -155,10 +155,6 @@ contract ManaPoolContract is Ownable {
         return true;
     }
     
-    function getLastTime() view public returns(uint256){
-        return now.sub(stakes[msg.sender].startTime);
-    }
-    
     function getCurrentReward(address _userAddress) view public returns(uint256){
         uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
         
@@ -179,9 +175,6 @@ contract ManaPoolContract is Ownable {
         return amount.div(_amount.mul(a).add(b)).div(60).div(denom);
     }
     
-    /**
-     * Returns the current user for a specific pool
-     **/
     function getStake(address userAddress) public view returns(Stake memory){
         return stakes[userAddress];
     }

@@ -421,7 +421,6 @@ contract DoTxGameContract is Ownable {
 
     function sendToStakingPools(uint256 stakingValue, uint256 warIndex) private{
         earlyPool.addDoTxToPool(stakingValue, earlyPool.getLongNightIndex(), warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
-        //earlyPool.addDoTxToPool(stakingValue.div(2), earlyPool.getLongNightIndex()); //TODO GOLD POOL
     }
     
     /*******************************

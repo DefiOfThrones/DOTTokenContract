@@ -113,8 +113,8 @@ contract EarlyPoolContract is Ownable {
         staking[2] = Staking(8035200, 25479);*/
         //TODO UNDO
         staking[0] = Staking(3600, 2123);
-        staking[1] = Staking(4000, 10192);
-        staking[2] = Staking(4400, 25479);
+        staking[1] = Staking(7200, 10192);
+        staking[2] = Staking(10800, 25479);
     }
     
     function startLongNight(uint256 _duration, uint256 _stakePeriod) public onlyOwner{
