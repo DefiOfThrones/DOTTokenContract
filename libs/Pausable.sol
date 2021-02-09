@@ -9,8 +9,6 @@ import "./Ownable.sol";
 contract Pausable is Ownable {
   event Pause();
   event Unpause();
-  address private _publicSaleContractAddress;
-  address private _swapWallet;
 
   bool public paused = false;
 
@@ -20,7 +18,7 @@ contract Pausable is Ownable {
    * @dev modifier to allow actions only when the contract IS paused
    */
   modifier whenNotPaused() {
-    require(!paused || msg.sender == owner() || msg.sender == _publicSaleContractAddress || msg.sender == _swapWallet);
+    require(!paused || msg.sender == owner());
     _;
   }
 
@@ -48,23 +46,5 @@ contract Pausable is Ownable {
     paused = false;
     emit Unpause();
     return true;
-  }
-
-  function publicSaleContractAddress() public view returns (address) {
-      return _publicSaleContractAddress;
-  }
-
-  function publicSaleContractAddress(address publicSaleAddress) public onlyOwner returns (address) {
-      _publicSaleContractAddress = publicSaleAddress;
-      return _publicSaleContractAddress;
-  }
-
-  function swapWallet() public view returns (address) {
-      return _swapWallet;
-  }
-
-  function swapWallet(address swapWallet) public onlyOwner returns (address) {
-      _swapWallet = swapWallet;
-      return _swapWallet;
   }
 }
