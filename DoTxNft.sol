@@ -1,15 +1,12 @@
 pragma solidity ^0.8.0;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/AccessControl.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/Ownable.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Burnable.sol";
 import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Pausable.sol";
 
-contract DoTxNFT is ERC721, AccessControl, ERC721Burnable, ERC721Pausable {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    
-    bytes32 public constant HOUSE_CREATOR_ROLE = keccak256("HOUSE_CREATOR_ROLE");
 
+
+contract DoTxNFT is ERC721, Ownable, ERC721Burnable, ERC721Pausable {
     mapping(uint256 => uint256) public nextHouseId;
     mapping(uint256 => uint256) public supply;
     
@@ -17,39 +14,39 @@ contract DoTxNFT is ERC721, AccessControl, ERC721Burnable, ERC721Pausable {
     uint32 public constant ID_TO_HOUSE = 1000000;
     event NewHouse(uint256 id, uint256 maxSupply);
 
-    constructor() public ERC721("DeFi of Thrones NFT", "DoTxNFT"){
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-
+    constructor(string memory _baseUrl) public ERC721("DeFi of Thrones NFT", "DoTxNFT"){
         _setBaseURI("https://nfttest.defiofthrones.io/");
     }
     
-    function newModel(uint256 id, uint256 maxSupply) external {
-        require(hasRole(HOUSE_CREATOR_ROLE, _msgSender()), "DoTxNFT: require house creator role");
-        require(maxSupply <= ID_TO_HOUSE, "DoTxNFT: max supply too high");
-        require(supply[id] == 0, "DoTxNFT: house already exist");
+    function newHouse(uint256 _houseId, uint256 _maxSupply) external onlyOwner {
+        require(_maxSupply <= ID_TO_HOUSE, "DoTxNFT: max supply too high");
+        require(supply[_houseId] == 0, "DoTxNFT: house already exist");
 
-        supply[id] = maxSupply;
-        NewHouse(id, maxSupply);
+        supply[_houseId] = _maxSupply;
+        NewHouse(_houseId, _maxSupply);
     }
     
-    function mint(address to, uint256 houseId) public virtual {
-        require(hasRole(MINTER_ROLE, _msgSender()), "DoTxNFT: must have minter role to mint");
+    function mintBatch(address _to, uint256 _houseId, uint256 _count) public onlyOwner {
+        require(supply[_houseId] != 0, "DoTxNFT: house does not exist");
+        require(nextHouseId[_houseId] < supply[_houseId], "DoTxNFT: house sold out");
         
-        require(supply[houseId] != 0, "DoTxNFT: house does not exist");
-        require(nextHouseId[houseId] < supply[houseId], "DoTxNFT: house sold out");
-        uint256 tokenId = houseId * ID_TO_HOUSE + nextHouseId[houseId];
-        nextHouseId[houseId]++;
+        for(uint256 i=0; i < _count; i++){
+            mint(_to, _houseId);
+        }
+    }
+    
+    function mint(address _to, uint256 _houseId) private onlyOwner {
+        uint256 tokenId = _houseId * ID_TO_HOUSE + nextHouseId[_houseId];
+        nextHouseId[_houseId]++;
 
-        _mint(to, tokenId);
+        _mint(_to, tokenId);
     }
 
-    function pause() public virtual {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "DoTxNFT: must have pauser role to pause");
+    function pause() public onlyOwner {
         _pause();
     }
 
-    function unpause() public virtual {
-        require(hasRole(PAUSER_ROLE, _msgSender()), "DoTxNFT: must have pauser role to unpause");
+    function unpause() public onlyOwner {
         _unpause();
     }
 
