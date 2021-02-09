@@ -15,7 +15,7 @@ contract DoTxNFT is ERC721, Ownable, ERC721Burnable, ERC721Pausable {
     event NewHouse(uint256 id, uint256 maxSupply);
 
     constructor(string memory _baseUrl) public ERC721("DeFi of Thrones NFT", "DoTxNFT"){
-        _setBaseURI("https://nfttest.defiofthrones.io/");
+        setBaseURI("https://nfttest.defiofthrones.io/");
     }
     
     function newHouse(uint256 _houseId, uint256 _maxSupply) external onlyOwner {
@@ -28,7 +28,6 @@ contract DoTxNFT is ERC721, Ownable, ERC721Burnable, ERC721Pausable {
     
     function mintBatch(address _to, uint256 _houseId, uint256 _count) public onlyOwner {
         require(supply[_houseId] != 0, "DoTxNFT: house does not exist");
-        require(nextHouseId[_houseId] < supply[_houseId], "DoTxNFT: house sold out");
         
         for(uint256 i=0; i < _count; i++){
             mint(_to, _houseId);
@@ -36,9 +35,11 @@ contract DoTxNFT is ERC721, Ownable, ERC721Burnable, ERC721Pausable {
     }
     
     function mint(address _to, uint256 _houseId) private onlyOwner {
-        uint256 tokenId = _houseId * ID_TO_HOUSE + nextHouseId[_houseId];
+        require(nextHouseId[_houseId] < supply[_houseId], "DoTxNFT: house sold out");
+        
         nextHouseId[_houseId]++;
-
+        uint256 tokenId = _houseId * ID_TO_HOUSE + nextHouseId[_houseId];
+        
         _mint(_to, tokenId);
     }
 
@@ -52,5 +53,9 @@ contract DoTxNFT is ERC721, Ownable, ERC721Burnable, ERC721Pausable {
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override(ERC721, ERC721Pausable) {
         super._beforeTokenTransfer(from, to, tokenId);
+    }
+    
+    function setBaseURI(string memory _baseUrl) public onlyOwner{
+        setBaseURI(_baseUrl);
     }
 }
