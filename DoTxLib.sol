@@ -948,7 +948,11 @@ interface IDotxGame{
      function secondHouseOpen(uint256 _price, uint256 warIndex) external;
      function firstHouseClose(uint256 _price, uint256 warIndex) external;
      function secondHouseClose(uint256 _price, uint256 warIndex) external;
- }
+}
+
+interface IDoTxNFT{
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
  
  contract Context {
     constructor () internal { }
@@ -1021,6 +1025,8 @@ contract DoTxLib is ChainlinkClient, Ownable {
     uint256 public rewardPrecision = 10000;
     
     uint256 public warIndex;
+    
+    IDoTxNFT public dotxNft;
     /**
      * Game contract constructor
      * Just pass the DoTx contract address in parameter
@@ -1151,6 +1157,10 @@ contract DoTxLib is ChainlinkClient, Ownable {
         dotxGameAddress = gameAddress;
     }
     
+    function setDoTxNft(address dotxNftAddress) public onlyOwner{
+        dotxNft = IDoTxNFT(dotxNftAddress);
+    }
+    
     function setRewardPrecision(uint256 precision) public onlyOwner{
         rewardPrecision = precision;
     }
@@ -1206,5 +1216,14 @@ contract DoTxLib is ChainlinkClient, Ownable {
      **/
     function append(string memory a, string memory b, string memory c, string memory d, string memory e) public pure returns (string memory) {
         return string(abi.encodePacked(a, b, c, d, e));
+    }
+    
+    //IDoTxNFT
+    function getDoTxItemsOwner(uint256[] memory ids) public view returns(address[] memory){
+        address[] memory owners = new address[](ids.length);
+        for(uint256 i; i<ids.length; i++){
+            owners[i] = dotxNft.ownerOf(ids[i]);
+        }
+        return owners;
     }
 }

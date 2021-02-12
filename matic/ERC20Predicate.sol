@@ -1,11 +1,11 @@
 pragma solidity 0.6.6;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/ITokenPredicate.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/AccessControlMixin.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/SafeERC20.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/IERC20.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/Initializable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/feature/dot-token-v2/matic/RLPReader.sol";
+import "./ITokenPredicate.sol";
+import "./AccessControlMixin.sol";
+import "./SafeERC20.sol";
+import "./IERC20.sol";
+import "./Initializable.sol";
+import "./RLPReader.sol";
 
 contract ERC20Predicate is ITokenPredicate, AccessControlMixin, Initializable {
     using RLPReader for bytes;
