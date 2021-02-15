@@ -952,6 +952,8 @@ interface IDotxGame{
 
 interface IDoTxNFT{
     function ownerOf(uint256 tokenId) external view returns (address);
+    function balanceOf(address owner) external view returns (uint256);
+    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256 tokenId);
 }
  
  contract Context {
@@ -1218,12 +1220,20 @@ contract DoTxLib is ChainlinkClient, Ownable {
         return string(abi.encodePacked(a, b, c, d, e));
     }
     
-    //IDoTxNFT
-    function getDoTxItemsOwner(uint256[] memory ids) public view returns(address[] memory){
-        address[] memory owners = new address[](ids.length);
-        for(uint256 i; i<ids.length; i++){
-            owners[i] = dotxNft.ownerOf(ids[i]);
+    function getDoTxNftsByOwner(address _owner) public view returns(uint256[] memory ownerTokens) {
+        uint256 tokenCount = dotxNft.balanceOf(_owner);
+
+        if (tokenCount == 0) {
+            // Return an empty array
+            return new uint256[](0);
+        } else {
+            uint256[] memory result = new uint256[](tokenCount);
+
+            for (uint256 index = 0; index < tokenCount; index++) {
+                result[index] = dotxNft.tokenOfOwnerByIndex(_owner, index);
+            }
+
+            return result;
         }
-        return owners;
     }
 }
