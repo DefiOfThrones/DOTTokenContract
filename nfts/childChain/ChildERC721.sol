@@ -1,9 +1,9 @@
 pragma solidity ^0.8.0;
 
-import "./ERC721.sol";
-import "./AccessControlMixin.sol";
-import "./NativeMetaTransaction.sol";
-import "./ContextMixin.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/ERC721.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/AccessControlMixin.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/NativeMetaTransaction.sol";
+import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/ContextMixin.sol";
 
 interface IChildToken {
     function deposit(address user, bytes calldata depositData) external;
@@ -26,7 +26,7 @@ contract ChildERC721 is
         uint256[] tokenIds
     );
     
-    address openSeaOperator;
+    address public openSeaOperator;
     //MUMBAI childChainManager 0xb5505a6d998549090530911180f38ac5130101c6
     constructor(
         string memory name_,
