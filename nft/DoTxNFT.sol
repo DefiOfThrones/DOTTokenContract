@@ -1,8 +1,8 @@
 pragma solidity ^0.8.0;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/Ownable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Burnable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Pausable.sol";
+import "./Ownable.sol";
+import "./ERC721Burnable.sol";
+import "./ERC721Pausable.sol";
 
 
 contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {

@@ -1,9 +1,8 @@
 pragma solidity ^0.8.0;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/Ownable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Burnable.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721Pausable.sol";
-
+import "./ERC721Burnable.sol";
+import "./ERC721Pausable.sol";
+import "./Ownable.sol";
 
 contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {
 
@@ -14,7 +13,7 @@ contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {
     uint32 public constant ID_TO_HOUSE = 1000000;
     event NewHouse(uint256 id, uint256 maxSupply);
 
-    constructor(string memory _baseUrl) public ERC721("NFTDoTx", "nDoTx"){//"DeFi of Thrones", "DoTx_NFT"
+    constructor(string memory _baseUrl) public ERC721("DeFi of Thrones NFT", "DoTxNFT"){//"DeFi of Thrones", "DoTx_NFT"
         setBaseURI(_baseUrl);//"https://nfttest.defiofthrones.io/"
     }
     
@@ -58,7 +57,7 @@ contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {
     function setBaseURI(string memory _baseUrl) public onlyOwner{
         _setBaseURI(_baseUrl);
     }
-    
+
     function getTokensByOwner(address _owner) public view returns(uint256[] memory ownerTokens) {
         uint256 tokenCount = balanceOf(_owner);
 
