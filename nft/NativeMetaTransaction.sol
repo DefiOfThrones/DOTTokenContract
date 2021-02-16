@@ -51,7 +51,7 @@ contract NativeMetaTransaction is EIP712Base {
 
         emit MetaTransactionExecuted(
             userAddress,
-            msg.sender,
+            payable(msg.sender),
             functionSignature
         );
 
