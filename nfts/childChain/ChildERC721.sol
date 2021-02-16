@@ -1,10 +1,13 @@
 pragma solidity ^0.8.0;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ERC721.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/IChildToken.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/AccessControlMixin.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/NativeMetaTransaction.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nft/ContextMixin.sol";
+import "./ERC721.sol";
+import "./AccessControlMixin.sol";
+import "./NativeMetaTransaction.sol";
+import "./ContextMixin.sol";
+
+interface IChildToken {
+    function deposit(address user, bytes calldata depositData) external;
+}
 
 contract ChildERC721 is
     ERC721,
