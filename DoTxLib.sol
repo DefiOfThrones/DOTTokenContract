@@ -1219,21 +1219,4 @@ contract DoTxLib is ChainlinkClient, Ownable {
     function append(string memory a, string memory b, string memory c, string memory d, string memory e) public pure returns (string memory) {
         return string(abi.encodePacked(a, b, c, d, e));
     }
-    
-    function getDoTxNftsByOwner(address _owner) public view returns(uint256[] memory ownerTokens) {
-        uint256 tokenCount = dotxNft.balanceOf(_owner);
-
-        if (tokenCount == 0) {
-            // Return an empty array
-            return new uint256[](0);
-        } else {
-            uint256[] memory result = new uint256[](tokenCount);
-
-            for (uint256 index = 0; index < tokenCount; index++) {
-                result[index] = dotxNft.tokenOfOwnerByIndex(_owner, index);
-            }
-
-            return result;
-        }
-    }
 }
