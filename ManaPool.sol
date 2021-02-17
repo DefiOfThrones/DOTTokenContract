@@ -9,7 +9,7 @@ interface IDoTxTokenContract{
 }
 
 interface IDoTxNFTContract{
-  function transferFrom(address sender, address recipient, uint256 tokenId) external returns (bool);
+  function transferFrom(address from, address to, uint256 tokenId) external;
 }
 
 contract Context {
@@ -59,7 +59,6 @@ contract Ownable is Context {
     }
 }
 
-
 /**
  * @title DeFi Of Thrones Mana Pool Contract
  * @author Maxime Reynders - DefiOfThrones (https://github.com/DefiOfThrones/DOTTokenContract)
@@ -94,6 +93,8 @@ contract ManaPoolContract is Ownable {
     event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
     constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
+        //_registerInterface(IERC721Receiver.onERC721Received.selector);
+        
         setDoTxLP(dotxLpTokenAddress);
         setDoTxNFT(dotxNFTAddress);
     }
@@ -199,11 +200,10 @@ contract ManaPoolContract is Ownable {
     * _ids : NFTs ids
     * _manaRequired : Mana required for each NFT
     **/
-    function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public onlyOwner{
-        for(uint256 i; i<_ids.length; i++){
-            if(dotxNFT.transferFrom(_msgSender(), address(this), _ids[i])){
-                nfts[_ids[i]].manaRequired = _manaRequired[i].mul(1000000000000000000);
-            }
+    function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public {
+        for(uint256 i = 0; i < _ids.length; i++){
+            dotxNFT.transferFrom(_msgSender(), address(this), _ids[i]);
+            nfts[_ids[i]].manaRequired = _manaRequired[i].mul(1000000000000000000);
         }
     }
     
@@ -213,7 +213,7 @@ contract ManaPoolContract is Ownable {
     * _ids : NFTs ids
     **/
     function transferNFT(uint256[] memory _ids) public onlyOwner{
-        for(uint256 i; i<_ids.length; i++){
+        for(uint256 i = 0; i<_ids.length; i++){
             dotxNFT.transferFrom(address(this), _msgSender(), _ids[i]);
         }
     }
@@ -232,7 +232,7 @@ contract ManaPoolContract is Ownable {
         stakes[_msgSender()].currentReward = stakes[_msgSender()].currentReward.sub(manaRequired);
         stakes[_msgSender()].startTime = now;
         
-        require(dotxNFT.transferFrom(address(this), _msgSender(), _nftId), "TransferFrom failed");
+        dotxNFT.transferFrom(address(this), _msgSender(), _nftId);
         
         emit ClaimNFT(manaRequired, _msgSender());
     }
@@ -242,9 +242,9 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _ids : NFTs ids
     **/
-    function getManaForNFT(uint256[] memory _ids) public returns(uint256[] memory){
+    function getManaForNFT(uint256[] memory _ids) public view returns(uint256[] memory){
         uint256[] memory result = new uint256[](_ids.length);
-        for(uint256 i; i<_ids.length; i++){
+        for(uint256 i = 0; i<_ids.length; i++){
             result[i] = nfts[_ids[i]].manaRequired;
         }
         
