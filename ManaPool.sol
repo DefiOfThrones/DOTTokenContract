@@ -92,9 +92,7 @@ contract ManaPoolContract is Ownable {
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
-    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
-        //_registerInterface(IERC721Receiver.onERC721Received.selector);
-        
+    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {        
         setDoTxLP(dotxLpTokenAddress);
         setDoTxNFT(dotxNFTAddress);
     }
