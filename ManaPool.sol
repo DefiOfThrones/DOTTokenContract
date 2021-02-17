@@ -92,7 +92,9 @@ contract ManaPoolContract is Ownable {
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
-    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {        
+    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
+        //_registerInterface(IERC721Receiver.onERC721Received.selector);
+        
         setDoTxLP(dotxLpTokenAddress);
         setDoTxNFT(dotxNFTAddress);
     }
@@ -198,7 +200,7 @@ contract ManaPoolContract is Ownable {
     * _ids : NFTs ids
     * _manaRequired : Mana required for each NFT
     **/
-    function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public {
+    function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public onlyOwner {
         for(uint256 i = 0; i < _ids.length; i++){
             dotxNFT.transferFrom(_msgSender(), address(this), _ids[i]);
             nfts[_ids[i]].manaRequired = _manaRequired[i].mul(1000000000000000000);
