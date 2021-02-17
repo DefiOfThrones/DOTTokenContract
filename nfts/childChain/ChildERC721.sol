@@ -32,13 +32,15 @@ contract ChildERC721 is
         string memory name_,
         string memory symbol_,
         address childChainManager,
-        address _openSeaOperator
+        address _openSeaOperator,
+        string memory _baseUrl
     ) public ERC721(name_, symbol_) {
         _setupContractId("ChildERC721");
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(DEPOSITOR_ROLE, childChainManager);
         _initializeEIP712(name_);
         setupOpenSeaOperator(_openSeaOperator);
+        setBaseURI(_baseUrl);
     }
 
     // This is to support Native meta transactions
@@ -122,6 +124,10 @@ contract ChildERC721 is
     
     function setupOpenSeaOperator(address _operator) public only(DEFAULT_ADMIN_ROLE) {
         openSeaOperator = _operator;
+    }
+    
+    function setBaseURI(string memory _baseUrl) public only(DEFAULT_ADMIN_ROLE){
+        _setBaseURI(_baseUrl);
     }
     
     function getTokensByOwner(address _owner) public view returns(uint256[] memory ownerTokens) {

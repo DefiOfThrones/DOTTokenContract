@@ -8,6 +8,10 @@ interface IDoTxTokenContract{
   function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
+interface IDoTxNFTContract{
+  function transferFrom(address sender, address recipient, uint256 tokenId) external returns (bool);
+}
+
 contract Context {
     constructor () internal { }
 
@@ -24,7 +28,6 @@ contract Context {
 contract Ownable is Context {
     address private _owner;
     address public dotxGameAddress;
-    address public nftContractAddress;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -40,8 +43,7 @@ contract Ownable is Context {
 
     modifier onlyOwner() {
         require(_owner == _msgSender() 
-        || dotxGameAddress == _msgSender() || dotxGameAddress == address(0) 
-        || nftContractAddress == _msgSender(), "Ownable: caller is not the owner");
+        || dotxGameAddress == _msgSender() || dotxGameAddress == address(0), "Ownable: caller is not the owner");
         _;
     }
 
@@ -72,19 +74,28 @@ contract ManaPoolContract is Ownable {
         uint256 currentReward;
     }
     
+    //Stake NFT
+    struct NFT {
+        uint256 manaRequired;
+    }
+    
     IDoTxTokenContract private lpToken;
+    IDoTxNFTContract private dotxNFT;
 
     //Map of Stake per user address 
     mapping(address => Stake) public stakes;
     mapping(uint256 => uint256) public manaBonus;
+     //Map of NFTs
+    mapping(uint256 => NFT) public nfts;
     
     event AddTokens(uint256 valueInDoTx, address sender);
     event RemoveTokens(uint256 valueInDoTx, address sender);
-    event UseReward(uint256 _rewardAmount, address sender);
+    event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
     
-    constructor(address dotxLpTokenAddress) public {
-        lpToken = IDoTxTokenContract(dotxLpTokenAddress);
+    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
+        setDoTxLP(dotxLpTokenAddress);
+        setDoTxNFT(dotxNFTAddress);
     }
     
     /**
@@ -138,23 +149,6 @@ contract ManaPoolContract is Ownable {
         emit AddRewardFromTickets(_warIndex, _ticketsNumber.mul(manaMultiplicator), _dotxAmountInWei, _userAddress);
     }
     
-    /**
-    * useReward - When an user want to use its reward
-    * Parameters :
-    * _rewardAmount Number of Reward
-    **/
-    function useReward(uint256 _rewardAmount, address userAddress) public onlyOwner returns(bool){
-        stakes[userAddress].currentReward = getCurrentReward(userAddress);
-        require(stakes[userAddress].currentReward >= _rewardAmount, "Not enought Reward");
-        
-        stakes[userAddress].currentReward = stakes[userAddress].currentReward.sub(_rewardAmount);
-        stakes[userAddress].startTime = now;
-        
-        emit UseReward(_rewardAmount, userAddress);
-        
-        return true;
-    }
-    
     function getCurrentReward(address _userAddress) view public returns(uint256){
         uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
         
@@ -187,7 +181,73 @@ contract ManaPoolContract is Ownable {
         manaBonus[_warIndex] = _manaBonus;
     }
     
-    function setNftContractAddress(address nftAddress) public onlyOwner{
-        nftContractAddress = nftAddress;
+    function setDoTxLP(address dotxLpTokenAddress) public onlyOwner{
+        lpToken = IDoTxTokenContract(dotxLpTokenAddress);
+    }
+    
+    function setDoTxNFT(address dotxNFTAddress) public onlyOwner{
+        dotxNFT = IDoTxNFTContract(dotxNFTAddress);
+    }
+    
+    /*************
+    NFT
+    **************/
+    
+    /**
+    * addNFTs - Owner can add NFTs & mana required to claim them
+    * Parameters :
+    * _ids : NFTs ids
+    * _manaRequired : Mana required for each NFT
+    **/
+    function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public onlyOwner{
+        for(uint256 i; i<_ids.length; i++){
+            if(dotxNFT.transferFrom(_msgSender(), address(this), _ids[i])){
+                nfts[_ids[i]].manaRequired = _manaRequired[i].mul(1000000000000000000);
+            }
+        }
+    }
+    
+    /**
+    * addNFTs - Owner can add NFTs & mana required to claim them
+    * Parameters :
+    * _ids : NFTs ids
+    **/
+    function transferNFT(uint256[] memory _ids) public onlyOwner{
+        for(uint256 i; i<_ids.length; i++){
+            dotxNFT.transferFrom(address(this), _msgSender(), _ids[i]);
+        }
+    }
+    
+    /**
+    * claimNFT - When an user want to use its MANA to claim NFT
+    * Parameters :
+    * _nftId : NFT id
+    **/
+    function claimNFT(uint256 _nftId) public{
+        uint256 manaRequired = nfts[_nftId].manaRequired;
+        
+        stakes[_msgSender()].currentReward = getCurrentReward(_msgSender());
+        require(stakes[_msgSender()].currentReward >= manaRequired, "Not enought MANA");
+        
+        stakes[_msgSender()].currentReward = stakes[_msgSender()].currentReward.sub(manaRequired);
+        stakes[_msgSender()].startTime = now;
+        
+        require(dotxNFT.transferFrom(address(this), _msgSender(), _nftId), "TransferFrom failed");
+        
+        emit ClaimNFT(manaRequired, _msgSender());
+    }
+    
+    /**
+    * getManaForNFT - Return mana required for NFTs
+    * Parameters :
+    * _ids : NFTs ids
+    **/
+    function getManaForNFT(uint256[] memory _ids) public returns(uint256[] memory){
+        uint256[] memory result = new uint256[](_ids.length);
+        for(uint256 i; i<_ids.length; i++){
+            result[i] = nfts[_ids[i]].manaRequired;
+        }
+        
+        return result;
     }
 }
