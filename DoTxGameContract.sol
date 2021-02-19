@@ -25,7 +25,7 @@ interface IEarlyPoolContract{
 
 interface IManaPoolContract{
     function setDoTxGame(address gameAddress) external;
-    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress) external;
+    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress, bool _isEarly) external;
 }
 
 contract Context {
@@ -258,8 +258,7 @@ contract DoTxGameContract is Ownable {
         House storage userHouse = getHouseStg(houseTicker, warIndex);
         
         //Allow user to only buy tickets for one single House and the one passed in parameter
-        bytes32 userHouseTicker = wars[warIndex].users[msg.sender].houseTicker;
-        require(userHouse.houseTicker == houseTicker && (userHouseTicker == houseTicker || userHouseTicker == 0), "You can not buy tickets for the other house");
+        require(userHouse.houseTicker == houseTicker && (wars[warIndex].users[msg.sender].houseTicker == houseTicker || wars[warIndex].users[msg.sender].houseTicker == 0), "You can not buy tickets for the other house");
 
         wars[warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
 
@@ -278,12 +277,13 @@ contract DoTxGameContract is Ownable {
         dotxToken.transferFrom(msg.sender, address(this), valueInDoTx);
         
         //Early POOL
-        if(isEarliable(valueInDoTx, warIndex)){
+        bool isEarlyTickets = isEarly(valueInDoTx, warIndex);
+        if(isEarlyTickets){
             earlyPool.addEarlyTickets(valueInDoTx, earlyPool.getLongNightIndex(), msg.sender, warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
         }
         
         //Mana POOL
-        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender);
+        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender, isEarlyTickets);
     }
     
     /**
@@ -622,7 +622,7 @@ contract DoTxGameContract is Ownable {
      /**
      * Check if the user isEarly in the current war
      **/
-    function isEarliable(uint256 _doTxSpent, uint256 warIndex) private view returns(bool){
+    function isEarly(uint256 _doTxSpent, uint256 warIndex) private view returns(bool){
         bool isEarlyPeriod = wars[warIndex].startTime.add(((wars[warIndex].duration.mul(10000)).mul(maxPercentJoinEarly).div(100)).div(10000))  > now;
         return _doTxSpent >= minDoTxEarly && isEarlyPeriod;
     }

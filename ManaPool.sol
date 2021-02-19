@@ -84,13 +84,15 @@ contract ManaPoolContract is Ownable {
     //Map of Stake per user address 
     mapping(address => Stake) public stakes;
     mapping(uint256 => uint256) public manaBonus;
+    //Early bonus
+    uint256 public earlyBonusPercentage = 30;
      //Map of NFTs
     mapping(uint256 => NFT) public nfts;
     
     event AddTokens(uint256 valueInDoTx, address sender);
     event RemoveTokens(uint256 valueInDoTx, address sender);
     event ClaimNFT(uint256 _mana, address sender);
-    event AddRewardFromTickets(uint256 warIndex, uint256 _ticketsNumber, uint256 valueInDoTx, address sender);
+    event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 ticketsNumber);
     
     constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
         //_registerInterface(IERC721Receiver.onERC721Received.selector);
@@ -139,15 +141,16 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _amountInWei Number of LP tokens
     **/
-    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress) public onlyOwner{
+    function addRewardFromTickets(uint256 _warIndex, uint256 _ticketsNumber, uint256 _dotxAmountInWei, address _userAddress, bool _isEarly) public onlyOwner{
         uint256 manaMultiplicator = manaBonus[_warIndex] != 0 ? manaBonus[_warIndex] : 1;
         uint256 newReward = _ticketsNumber.mul(manaMultiplicator).mul(1000000000000000000); // 1 ticket == (1 MANA * MANABONUS)
+        newReward = newReward.add(_isEarly ? calculatePercentage(newReward, earlyBonusPercentage, 100000) : 0);// Early bonus
         
         stakes[_userAddress].currentReward = getCurrentReward(_userAddress);
         stakes[_userAddress].startTime = now;
         stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
         
-        emit AddRewardFromTickets(_warIndex, _ticketsNumber.mul(manaMultiplicator), _dotxAmountInWei, _userAddress);
+        emit AddRewardFromTickets(_warIndex, newReward, _dotxAmountInWei, _userAddress, _isEarly, _ticketsNumber);
     }
     
     function getCurrentReward(address _userAddress) view public returns(uint256){
@@ -190,6 +193,10 @@ contract ManaPoolContract is Ownable {
         dotxNFT = IDoTxNFTContract(dotxNFTAddress);
     }
     
+    function setearlyBonusPercentage(uint256 _earlyBonusPercentage) public onlyOwner{
+        earlyBonusPercentage = _earlyBonusPercentage;
+    }
+    
     /*************
     NFT
     **************/
@@ -203,8 +210,12 @@ contract ManaPoolContract is Ownable {
     function addNFTs(uint256[] memory _ids, uint256[] memory _manaRequired) public onlyOwner {
         for(uint256 i = 0; i < _ids.length; i++){
             dotxNFT.transferFrom(_msgSender(), address(this), _ids[i]);
-            nfts[_ids[i]].manaRequired = _manaRequired[i].mul(1000000000000000000);
+            updateManaForNft(_ids[i], _manaRequired[i]);
         }
+    }
+    
+    function updateManaForNft(uint256 _nftId, uint256 _manaRequired) public onlyOwner{
+        nfts[_nftId].manaRequired = _manaRequired.mul(1000000000000000000);
     }
     
     /**
@@ -249,5 +260,9 @@ contract ManaPoolContract is Ownable {
         }
         
         return result;
+    }
+    
+    function calculatePercentage(uint256 amount, uint256 percentage, uint256 selecteWinnerPrecision) public pure returns(uint256){
+        return amount.mul(selecteWinnerPrecision).mul(percentage).div(100).div(selecteWinnerPrecision);
     }
 }
