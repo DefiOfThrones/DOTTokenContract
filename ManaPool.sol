@@ -69,7 +69,8 @@ contract ManaPoolContract is Ownable {
     //Stake Struct
     struct Stake {
         uint256 startTime;
-        uint256 lpAmount;
+        uint256 lpUniAmount;
+        uint256 lpMaticAmount;
         uint256 currentReward;
     }
     
@@ -78,7 +79,8 @@ contract ManaPoolContract is Ownable {
         uint256 manaRequired;
     }
     
-    IDoTxTokenContract private lpToken;
+    IDoTxTokenContract private lpUniToken;
+    IDoTxTokenContract private lpMaticToken;
     IDoTxNFTContract private dotxNFT;
 
     //Map of Stake per user address 
@@ -94,10 +96,8 @@ contract ManaPoolContract is Ownable {
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 warBonus, uint256 ticketsNumber);
     
-    constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
-        //_registerInterface(IERC721Receiver.onERC721Received.selector);
-        
-        setDoTxLP(dotxLpTokenAddress);
+    constructor(address dotxUniLpTokenAddress, address dotxNFTAddress) public {
+        setDoTxUniLP(dotxUniLpTokenAddress);
         setDoTxNFT(dotxNFTAddress);
     }
     
@@ -106,14 +106,14 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _amountInWei Number of LP tokens
     **/
-    function addTokens(uint256 _amountInWei) public {
-        if(stakes[msg.sender].lpAmount != 0){
+    function addTokens(uint256 _amountInWei, bool _isUni) public {
+        if(getTotalLpTokens(msg.sender) != 0){
             stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         }
 
-        require(lpToken.transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
+        require((_isUni ? lpUniToken : lpMaticToken).transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
         
-        stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.add(_amountInWei);
+        addRemoveLpTokens(_amountInWei, msg.sender, true, _isUni);
         stakes[msg.sender].startTime = now;
         
         emit AddTokens(_amountInWei, msg.sender);
@@ -124,14 +124,15 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _amountInWei Number of LP tokens
     **/
-    function removeTokens(uint256 _amountInWei) public {
-        require(stakes[msg.sender].lpAmount >= _amountInWei , "Not enought LP");
+    function removeTokens(uint256 _amountInWei, bool _isUni) public {
+        require((_isUni ? stakes[msg.sender].lpUniAmount : stakes[msg.sender].lpMaticAmount) >= _amountInWei , "Not enought LP");
         
         stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         stakes[msg.sender].startTime = now;
-        stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
+        //stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
+        addRemoveLpTokens(_amountInWei, msg.sender, false, _isUni);
 
-        require(lpToken.transfer(msg.sender, _amountInWei), "Transfer failed");
+        require((_isUni ? lpUniToken : lpMaticToken).transfer(msg.sender, _amountInWei), "Transfer failed");
         
         emit RemoveTokens(_amountInWei, msg.sender);
     }
@@ -156,7 +157,7 @@ contract ManaPoolContract is Ownable {
     function getCurrentReward(address _userAddress) view public returns(uint256){
         uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
         
-        uint256 rewardPerSecond = calculateRewardPerSecond(stakes[_userAddress].lpAmount);
+        uint256 rewardPerSecond = calculateRewardPerSecond(getTotalLpTokens(msg.sender));
         
         //Previous reward + new reward
         uint256 newReward = diffTimeSec.mul(rewardPerSecond);
@@ -185,8 +186,12 @@ contract ManaPoolContract is Ownable {
         manaBonus[_warIndex] = _manaBonus;
     }
     
-    function setDoTxLP(address dotxLpTokenAddress) public onlyOwner{
-        lpToken = IDoTxTokenContract(dotxLpTokenAddress);
+    function setDoTxUniLP(address dotxLpTokenAddress) public onlyOwner{
+        lpUniToken = IDoTxTokenContract(dotxLpTokenAddress);
+    }
+    
+    function setDoTxMaticLP(address dotxLpTokenAddress) public onlyOwner{
+        lpMaticToken = IDoTxTokenContract(dotxLpTokenAddress);
     }
     
     function setDoTxNFT(address dotxNFTAddress) public onlyOwner{
@@ -264,5 +269,17 @@ contract ManaPoolContract is Ownable {
     
     function calculatePercentage(uint256 amount, uint256 percentage, uint256 selecteWinnerPrecision) public pure returns(uint256){
         return amount.mul(selecteWinnerPrecision).mul(percentage).div(100).div(selecteWinnerPrecision);
+    }
+    
+    function getTotalLpTokens(address _user) public view returns(uint256){
+        return stakes[_user].lpUniAmount.add(stakes[_user].lpMaticAmount);
+    }
+    
+    function addRemoveLpTokens(uint256 _amountInWei, address _user, bool _isAdd, bool _isUni) private {
+        if(_isUni){
+            stakes[_user].lpUniAmount = stakes[_user].lpUniAmount.add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0);
+        }else{
+            stakes[_user].lpMaticAmount = stakes[_user].lpMaticAmount.add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0);
+        }
     }
 }
