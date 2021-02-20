@@ -92,7 +92,7 @@ contract ManaPoolContract is Ownable {
     event AddTokens(uint256 valueInDoTx, address sender);
     event RemoveTokens(uint256 valueInDoTx, address sender);
     event ClaimNFT(uint256 _mana, address sender);
-    event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 ticketsNumber);
+    event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 warBonus, uint256 ticketsNumber);
     
     constructor(address dotxLpTokenAddress, address dotxNFTAddress) public {
         //_registerInterface(IERC721Receiver.onERC721Received.selector);
@@ -150,7 +150,7 @@ contract ManaPoolContract is Ownable {
         stakes[_userAddress].startTime = now;
         stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
         
-        emit AddRewardFromTickets(_warIndex, newReward, _dotxAmountInWei, _userAddress, _isEarly, _ticketsNumber);
+        emit AddRewardFromTickets(_warIndex, newReward, _dotxAmountInWei, _userAddress, _isEarly, manaMultiplicator, _ticketsNumber);
     }
     
     function getCurrentReward(address _userAddress) view public returns(uint256){
