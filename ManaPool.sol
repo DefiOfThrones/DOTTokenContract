@@ -129,7 +129,6 @@ contract ManaPoolContract is Ownable {
         
         stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
         stakes[msg.sender].startTime = now;
-        //stakes[msg.sender].lpAmount = stakes[msg.sender].lpAmount.sub(_amountInWei);
         addRemoveLpTokens(_amountInWei, msg.sender, false, _isUni);
 
         require((_isUni ? lpUniToken : lpMaticToken).transfer(msg.sender, _amountInWei), "Transfer failed");
