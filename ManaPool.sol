@@ -27,6 +27,7 @@ contract Context {
 
 contract Ownable is Context {
     address private _owner;
+    address public pool2;
     address public dotxGameAddress;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -43,7 +44,8 @@ contract Ownable is Context {
 
     modifier onlyOwner() {
         require(_owner == _msgSender() 
-        || dotxGameAddress == _msgSender() || dotxGameAddress == address(0), "Ownable: caller is not the owner");
+        || dotxGameAddress == _msgSender() || dotxGameAddress == address(0)
+        || pool2 == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
 
@@ -179,6 +181,10 @@ contract ManaPoolContract is Ownable {
     
     function setDoTxGame(address gameAddress) public onlyOwner{
         dotxGameAddress = gameAddress;
+    }
+    
+    function setPool2(address _pool2) public onlyOwner{
+        pool2 = _pool2;
     }
     
     function setManaBonus(uint256 _warIndex, uint256 _manaBonus) public onlyOwner{
