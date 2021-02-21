@@ -9,7 +9,7 @@ interface IChildToken {
     function deposit(address user, bytes calldata depositData) external;
 }
 
-contract ChildERC721 is
+contract DoTxNFT is
     ERC721,
     IChildToken,
     AccessControlMixin,
@@ -27,7 +27,7 @@ contract ChildERC721 is
     );
     
     address public openSeaOperator;
-    //MUMBAI childChainManager 0xb5505a6d998549090530911180f38ac5130101c6
+
     constructor(
         string memory name_,
         string memory symbol_,
@@ -39,6 +39,7 @@ contract ChildERC721 is
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(DEPOSITOR_ROLE, childChainManager);
         _initializeEIP712(name_);
+        
         setupOpenSeaOperator(_openSeaOperator);
         setBaseURI(_baseUrl);
     }
