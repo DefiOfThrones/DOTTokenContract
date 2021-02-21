@@ -1,9 +1,9 @@
 pragma solidity ^0.8.0;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/ERC721.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/AccessControlMixin.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/NativeMetaTransaction.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/nfts/childChain/ContextMixin.sol";
+import "./ERC721.sol";
+import "./AccessControlMixin.sol";
+import "./NativeMetaTransaction.sol";
+import "./ContextMixin.sol";
 
 interface IChildToken {
     function deposit(address user, bytes calldata depositData) external;
@@ -35,7 +35,7 @@ contract DoTxNFT is
         address _openSeaOperator,
         string memory _baseUrl
     ) public ERC721(name_, symbol_) {
-        _setupContractId("ChildERC721");
+        _setupContractId("DoTxNFT");
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(DEPOSITOR_ROLE, childChainManager);
         _initializeEIP712(name_);
