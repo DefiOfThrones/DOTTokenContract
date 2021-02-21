@@ -13,8 +13,8 @@ contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {
     uint32 public constant ID_TO_HOUSE = 1000000;
     event NewHouse(uint256 id, uint256 maxSupply);
 
-    constructor(string memory _baseUrl) public ERC721("DeFi of Thrones NFT", "DoTxNFT"){//"DeFi of Thrones", "DoTx_NFT"
-        setBaseURI(_baseUrl);//"https://nfttest.defiofthrones.io/"
+    constructor(string memory _baseUrl) public ERC721("DeFi of Thrones", "DoTxNFT"){
+        setBaseURI(_baseUrl);
     }
     
     function newHouse(uint256 _houseId, uint256 _maxSupply) external onlyOwner {
@@ -23,6 +23,12 @@ contract DoTxNFT is ERC721, ERC721Burnable, ERC721Pausable, Ownable {
 
         supply[_houseId] = _maxSupply;
         NewHouse(_houseId, _maxSupply);
+    }
+    
+    function mintHousesBatch(address _to, uint256[] memory _houseIds, uint256[] memory _count) public onlyOwner {
+        for(uint256 i=0; i < _houseIds.length; i++){
+            mintBatch(_to, _houseIds[i], _count[i]);
+        }
     }
     
     function mintBatch(address _to, uint256 _houseId, uint256 _count) public onlyOwner {
