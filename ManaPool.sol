@@ -93,8 +93,8 @@ contract ManaPoolContract is Ownable {
      //Map of NFTs
     mapping(uint256 => NFT) public nfts;
     
-    event AddTokens(uint256 valueInDoTx, address sender);
-    event RemoveTokens(uint256 valueInDoTx, address sender);
+    event AddTokens(uint256 valueInDoTx, address sender, bool isUni);
+    event RemoveTokens(uint256 valueInDoTx, address sender, bool isUni);
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 warBonus, uint256 ticketsNumber);
     
@@ -118,7 +118,7 @@ contract ManaPoolContract is Ownable {
         addRemoveLpTokens(_amountInWei, msg.sender, true, _isUni);
         stakes[msg.sender].startTime = now;
         
-        emit AddTokens(_amountInWei, msg.sender);
+        emit AddTokens(_amountInWei, msg.sender, _isUni);
     }
     
     /**
@@ -135,7 +135,7 @@ contract ManaPoolContract is Ownable {
 
         require((_isUni ? lpUniToken : lpMaticToken).transfer(msg.sender, _amountInWei), "Transfer failed");
         
-        emit RemoveTokens(_amountInWei, msg.sender);
+        emit RemoveTokens(_amountInWei, msg.sender, _isUni);
     }
     
     /**
