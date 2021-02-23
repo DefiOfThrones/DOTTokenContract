@@ -106,7 +106,7 @@ contract EarlyPoolContract is Ownable {
     event WithdrawStaking(uint256 poolIndex, address user);
 
     constructor(address dotxTokenAddress) public {
-        doTxToken = IDoTxTokenContract(dotxTokenAddress);
+        setDoTxTokenAddress(dotxTokenAddress);
         
         /*staking[0] = Staking(2678400, 2123);
         staking[1] = Staking(5356800, 10192);
@@ -234,6 +234,10 @@ contract EarlyPoolContract is Ownable {
         dotxGameAddress = gameAddress;
     }
     
+    function setDoTxTokenAddress(address _dotxTokenAddress) public onlyOwner{
+        doTxToken = IDoTxTokenContract(_dotxTokenAddress);
+    }
+
     function isLongNightFinished(uint256 _index) public view returns(bool) {
         return pools[_index].startTime.add(pools[_index].duration) < now;
     }
