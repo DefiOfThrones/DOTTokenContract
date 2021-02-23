@@ -142,6 +142,7 @@ contract DoTxGameContract is Ownable {
         bytes32 secondHouse;
         uint256 startTime;
         uint256 duration;
+        bool isClosed;
     }
     
     //DOTX Token Contract Address
@@ -510,12 +511,13 @@ contract DoTxGameContract is Ownable {
         calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, false, warIndex));
     }
     
-    function getWarsHouses(uint256 min, uint256 max) public view returns (WarHouses[20] memory){
-        WarHouses[20] memory houses;
+    function getWarsHouses(uint256 min, uint256 max) public view returns (WarHouses[] memory){
+        uint256 count = (max - min) + 1;
+        WarHouses[] memory houses = new WarHouses[](count);
         uint256 i = min;
         uint256 index = 0;
-        while(index < 20 && i <= (max - min) + 1){
-            houses[index] = (WarHouses(i, wars[i].firstHouse.houseTicker, wars[i].secondHouse.houseTicker, wars[i].startTime, wars[i].duration));
+        while(index < count){
+            houses[index] = (WarHouses(i, wars[i].firstHouse.houseTicker, wars[i].secondHouse.houseTicker, wars[i].startTime, wars[i].duration, wars[i].winningHouse != 0));
             i++;
             index++;
         }
