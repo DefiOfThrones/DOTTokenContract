@@ -94,8 +94,8 @@ contract Ownable is Context {
  */
 contract DoTxGameContract is Ownable {
     using SafeMath for uint256;
-    //Burn x% of the losing house tickets to Vitalik Address
-    address constant public BURN_ADDRESS = 0x0000000000000000000000000000000000000001;
+    //Burn x% of the losing house tickets to Burn wallet on Matic -> Burn on Ethereum Mainnet
+    address constant public BURN_ADDRESS = 0xA0B3b84b6d66c0d7C4E87f40784b3b8328B5f33D;
 
     //War struct, for each war a War variable will be created 
     struct War {
