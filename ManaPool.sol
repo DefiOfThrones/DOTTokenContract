@@ -233,9 +233,9 @@ contract ManaPoolContract is Ownable {
     * Parameters :
     * _ids : NFTs ids
     **/
-    function transferNFT(uint256[] memory _ids) public onlyOwner{
+    function transferNFT(uint256[] memory _ids, address _recipient) public onlyOwner{
         for(uint256 i = 0; i<_ids.length; i++){
-            dotxNFT.transferFrom(address(this), _msgSender(), _ids[i]);
+            dotxNFT.transferFrom(address(this), _recipient, _ids[i]);
         }
     }
     
