@@ -158,7 +158,7 @@ contract ManaPoolContract is Ownable {
     function getCurrentReward(address _userAddress) view public returns(uint256){
         uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
         
-        uint256 rewardPerSecond = calculateRewardPerSecond(getTotalLpTokens(msg.sender));
+        uint256 rewardPerSecond = calculateRewardPerSecond(getTotalLpTokens(_userAddress));
         
         //Previous reward + new reward
         uint256 newReward = diffTimeSec.mul(rewardPerSecond);
