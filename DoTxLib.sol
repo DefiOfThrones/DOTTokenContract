@@ -1018,11 +1018,11 @@ contract DoTxLib is ChainlinkClient, Ownable {
     //CHAINLINK VARS
     // The address of an oracle - you can find node addresses on https://market.link/search/nodes
     //address ORACLE_ADDRESS = 0xB36d3709e22F7c708348E225b20b13eA546E6D9c; ROPSTEN
-    address public ORACLE_ADDRESS = 0x92880E3Ed92b6332cC16976A81Aed11Fd1fE0270;
+    address public ORACLE_ADDRESS = 0x2eAE242206C89352Af2F54A246DC39140b582711;
     // The address of the http get > uint256 job
-    string public JOBID = "2fcfa8acb4c84b17ae01c7964136a722";
+    string public JOBID = "f480240b6a8243b0ac297afccc6a2c12";
     //LINK amount / transaction (oracle payment)
-    uint256 public ORACLE_PAYMENT = 10000000000000000;
+    uint256 public ORACLE_PAYMENT = 1000000000000;
     
     uint256 public rewardPrecision = 10000;
     
