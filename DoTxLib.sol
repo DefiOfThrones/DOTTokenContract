@@ -1020,7 +1020,7 @@ contract DoTxLib is ChainlinkClient, Ownable {
     //address ORACLE_ADDRESS = 0xB36d3709e22F7c708348E225b20b13eA546E6D9c; ROPSTEN
     address public ORACLE_ADDRESS = 0x2eAE242206C89352Af2F54A246DC39140b582711;
     // The address of the http get > uint256 job
-    string public JOBID = "f480240b6a8243b0ac297afccc6a2c12";
+    string public JOBID = "d58327ae4ac04654b6db9012cbc2a0c3";
     //LINK amount / transaction (oracle payment)
     uint256 public ORACLE_PAYMENT = 1000000000000;
     
@@ -1035,7 +1035,7 @@ contract DoTxLib is ChainlinkClient, Ownable {
      **/
     constructor() public {
         //Setup Chainlink address for the network
-        setChainlinkToken(0x70d1F773A9f81C852087B77F6Ae6d3032B02D2AB);
+        setChainlinkToken(0xb0897686c545045aFc77CF20eC7A532E3120E0F1);
     }
     
     function calculateHousePerf(int256 open, int256 close, int256 precision) external pure returns(int256){
