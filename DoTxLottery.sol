@@ -340,7 +340,7 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
         setTiers(1, 2500000000000000000000, 3); //bronze
         setTiers(2, 10000000000000000000000, 5); //silver
         setTiers(3, 25000000000000000000000, 8); //gold
-        setTiers(4, 50000000000000000000000, 10); //diamand
+        setTiers(4, 50000000000000000000000, 10); //diamond
     }
     
     /*
