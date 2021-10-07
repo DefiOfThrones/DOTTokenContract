@@ -294,14 +294,14 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
     struct Game {
         uint256 startTime;
         uint256 ticketPrice;
-        uint256 min;
-        uint256 max;
+        uint256 minIndex;
+        uint256 maxIndex;
         uint256 winnerIndex;
     }
     
     struct Tier {
         uint256 minDoTxToHold;
-        uint256 maxTickets;
+        uint256 maxTicketsPurchasable;
     }
     
     struct User {
@@ -325,6 +325,11 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
     mapping(uint256 => address[]) public users;
     mapping (address => bool) public wallets;
     
+    //Game vars
+    uint256 public ticketPrice;
+    uint256 public minIndex;
+    uint256 public maxIndex;
+    
     //
     uint256 public currentIndex;
     
@@ -341,27 +346,33 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
         setTiers(2, 10000000000000000000000, 5); //silver
         setTiers(3, 25000000000000000000000, 8); //gold
         setTiers(4, 50000000000000000000000, 10); //diamond
+        
+        configureGameVars(20000000000000000000, 0, 99);
     }
     
     /*
     DOTX LOTTERY
     */
     function startGame() public{
-        require(games[currentIndex].max == users[currentIndex].length , "Current Game not finished");
+        require(games[currentIndex].winnerIndex != 0, "Previous winner not chosen");
+        
+        currentIndex++;
+        
+        games[currentIndex].ticketPrice = ticketPrice;
+        games[currentIndex].minIndex = minIndex;
+        games[currentIndex].maxIndex = maxIndex;
     }
     
     function buyTickets(uint256 _numberOfTicket) public {
-        require(games[currentIndex].max < users[currentIndex].length , "All tickets sold");
+        require(games[currentIndex].maxIndex + 1 >= users[currentIndex].length + _numberOfTicket , "All tickets sold"); //TODO VERIFY THIS CONDITION
         
         uint256 maxTickets = getMaxTicketForUser(msg.sender);
         uint256 numberOfTicketsBought = userTickets[currentIndex][msg.sender].ticketsBought.add(_numberOfTicket);
         
-        require(numberOfTicketsBought <= maxTickets, "Max tickets reach");
+        require(numberOfTicketsBought <= maxTickets, "Max tickets reach for tier");
         userTickets[currentIndex][msg.sender].ticketsBought = numberOfTicketsBought;
         
-        //Track user
-        if(!wallets[msg.sender]){
-            wallets[msg.sender] = true;
+        for(uint256 i = 0; i < _numberOfTicket; i++){
             users[currentIndex].push(msg.sender);
         }
         
@@ -373,26 +384,27 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
      * CHAINLINK VRF
      */
     function getRandomNumber(uint256 userProvidedSeed) public onlyOwner returns (bytes32 requestId) {
-        //TODO PROTECTION 
+        require(users[currentIndex].length > games[currentIndex].maxIndex, "Current Game not finished"); //TODO VERIFY THIS CONDITION
+
         require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK - fill contract with faucet");
         return requestRandomness(keyHash, fee, userProvidedSeed);
     }
 
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        games[currentIndex].winnerIndex = (randomness % games[currentIndex].max) + games[currentIndex].min;
+        games[currentIndex].winnerIndex = (randomness % games[currentIndex].maxIndex) + games[currentIndex].minIndex;
     }
     
     /*
     GETTER
     */
     function getMaxTicketForUser(address _userAddress) public view returns(uint256){
-        uint256 maxTickets = tiers[0].maxTickets;//no tier
-        for(uint256 i = 4; i >= 1; i--){
-            if(maxTickets == tiers[0].maxTickets && dotxToken.balanceOf(_userAddress) >= tiers[i].minDoTxToHold){
-                maxTickets = tiers[i].maxTickets;
+        uint256 maxTicketsPurchasable = tiers[0].maxTicketsPurchasable;
+        for(uint256 i = 0; i < tiers.length; i++){
+            if(dotxToken.balanceOf(_userAddress) >= tiers[i].minDoTxToHold){
+                maxTicketsPurchasable = tiers[i].maxTicketsPurchasable;
             }
         }
-        return maxTickets;
+        return maxTicketsPurchasable;
     }
     
     /*
@@ -402,10 +414,16 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
         require(LINK.transfer(msg.sender, LINK.balanceOf(address(this))), "Unable to transfer");
     }
     
-    function configureGame(uint256 _ticketPrice, uint256 _min, uint256 _max, uint256 gameIndex) public onlyOwner {
-        games[gameIndex].ticketPrice = _ticketPrice;
-        games[gameIndex].min = _min;
-        games[gameIndex].max = _max;
+    function configureGame(uint256 _ticketPrice, uint256 _min, uint256 _max, uint256 _gameIndex) public onlyOwner {
+        games[_gameIndex].ticketPrice = _ticketPrice;
+        games[_gameIndex].minIndex = _min;
+        games[_gameIndex].maxIndex = _max;
+    }
+    
+    function configureGameVars(uint256 _ticketPrice, uint256 _min, uint256 _max) public onlyOwner {
+        ticketPrice = _ticketPrice;
+        minIndex = _min;
+        maxIndex = _max;
     }
     
     function setDoTxAddress(address _dotxTokenAddress) public onlyOwner{
@@ -415,6 +433,6 @@ contract DoTxLottery is VRFConsumerBase, Ownable {
     
     function setTiers(uint256 _tierIndex, uint256 _minDoTx, uint256 _maxTickets) public onlyOwner{
         tiers[_tierIndex].minDoTxToHold = _minDoTx;
-        tiers[_tierIndex].maxTickets = _maxTickets;
+        tiers[_tierIndex].maxTicketsPurchasable = _maxTickets;
     }
 }
