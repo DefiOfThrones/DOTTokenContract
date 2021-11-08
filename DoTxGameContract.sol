@@ -1,9 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/IDotTokenContract.sol";
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
+interface IDotTokenContract{
+  function balanceOf(address account) external view returns (uint256);
+  function totalSupply() external view returns (uint256);
+  function transfer(address recipient, uint256 amount) external returns (bool);
+  function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+  function allowance(address owner, address spender) external view returns (uint256);
+  function approve(address spender, uint256 amount) external returns (bool);
+}
 
+/**
+ * @dev Wrappers over Solidity's arithmetic operations with added overflow
+ * checks.
+ *
+ * Arithmetic operations in Solidity wrap on overflow. This can easily result
+ * in bugs, because programmers usually assume that an overflow raises an
+ * error, which is the standard behavior in high level programming languages.
+ * `SafeMath` restores this intuition by reverting the transaction when an
+ * operation overflows.
+ *
+ * Using this library instead of the unchecked operations eliminates an entire
+ * class of bugs, so it's recommended to use it always.
+ */
+library SafeMath {
+    /**
+     * @dev Returns the addition of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `+` operator.
+     *
+     * Requirements:
+     *
+     * - Addition cannot overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sub(a, b, "SafeMath: subtraction overflow");
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b <= a, errorMessage);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `*` operator.
+     *
+     * Requirements:
+     *
+     * - Multiplication cannot overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return div(a, b, "SafeMath: division by zero");
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts with custom message on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b > 0, errorMessage);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return mod(a, b, "SafeMath: modulo by zero");
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts with custom message when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+}
 
 interface IDoTxLib{
     function queryChainLinkPrice(string calldata _fsym, string calldata _fsymId, int256 _multiplicator, bytes4 _selector) external;
@@ -107,7 +269,6 @@ contract DoTxGameContract is Ownable {
         uint256 warFeesPercent;
         int256 multiplicator;
         uint256 burnPercentage;
-        uint256 stakingPercentage;
         House firstHouse;
         House secondHouse;
         mapping(address => User) users;
@@ -131,9 +292,7 @@ contract DoTxGameContract is Ownable {
     //BURN STAKING INFORMATION
     struct BurnStake {
         uint256 firstHouseBurnDoTx;
-        uint256 firstHouseStakingDoTx;
         uint256 secondHouseBurnDoTx;
-        uint256 secondHouseStakingDoTx;
     }
     
     struct WarHouses {
@@ -149,8 +308,6 @@ contract DoTxGameContract is Ownable {
     IDotTokenContract private dotxToken;
     //DOTX Game lib
     IDoTxLib private dotxLib;
-    //EarlyPool 
-    IEarlyPoolContract private earlyPool;
     //ManaPool 
     IManaPoolContract private manaPool;
     
@@ -169,7 +326,7 @@ contract DoTxGameContract is Ownable {
     
     //EARLY POOL
     uint256 public maxPercentJoinEarly = 25;//25%
-    uint256 public minDoTxEarly = 500000000000000000000;// 500 DoTx
+    //uint256 public minDoTxEarly = 500000000000000000000;// 500 DoTx
     
     //EVENTS
     event WarStarted(uint256 warIndex);
@@ -178,7 +335,7 @@ contract DoTxGameContract is Ownable {
     event SwitchHouse(uint256 warIndex, string from, string to, address sender, uint256 valueInDoTx);
     event openPriceFetched(uint256 warIndex);
     event closePriceFetched(uint256 warIndex);
-    event StakeBurn(uint256 warIndex, uint256 burnValue, uint256 stakeValue);
+    event StakeBurn(uint256 warIndex, uint256 burnValue);
 
     //MODIFIERS
     modifier onlyIfCurrentWarFinished(uint256 warIndex) {
@@ -207,11 +364,11 @@ contract DoTxGameContract is Ownable {
      * Game contract constructor
      * Just pass the DoTx token contract address in parameter
      **/
-    constructor(address dotxTokenAddress, address dotxLibAddr, address earlyPoolAddr, address manaPoolAddr, bool setupAddressInLib, bool setupAddressInPool) public {
+    constructor(address dotxTokenAddress, address dotxLibAddr, address manaPoolAddr, bool setupAddressInLib, bool setupAddressInPool) public {
         //Implement DoTx contract interface by providing address
         dotxToken = IDotTokenContract(dotxTokenAddress);
         
-        setDoTxLibs(dotxLibAddr, setupAddressInLib, earlyPoolAddr, manaPoolAddr, setupAddressInPool, true);
+        setDoTxLibs(dotxLibAddr, setupAddressInLib, manaPoolAddr, setupAddressInPool);
     }
     
     /**************************
@@ -236,7 +393,7 @@ contract DoTxGameContract is Ownable {
         require(_warIndex > dotxLib.getWarIndex(), "War index already exists");
         
         //Create war  
-        wars[_warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, stakingPercentage, 
+        wars[_warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, 
         House(stringToBytes32(_firstHouseTicker), stringToBytes32(_firstHouseId), 0, 0, 0),
         House(stringToBytes32(_secondHouseTicker), stringToBytes32(_secondHouseId), 0, 0, 0));
         
@@ -277,14 +434,8 @@ contract DoTxGameContract is Ownable {
         //Transfer DoTx
         dotxToken.transferFrom(msg.sender, address(this), valueInDoTx);
         
-        //Early POOL
-        bool isEarlyTickets = isEarly(valueInDoTx, warIndex);
-        if(isEarlyTickets){
-            earlyPool.addEarlyTickets(valueInDoTx, earlyPool.getLongNightIndex(), msg.sender, warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
-        }
-        
         //Mana POOL
-        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender, isEarlyTickets);
+        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender, false);
     }
     
     /**
@@ -410,18 +561,8 @@ contract DoTxGameContract is Ownable {
         uint256 burnValue = calculateBurnStaking(losingHouse, true, warIndex);
         dotxToken.transfer(BURN_ADDRESS, burnValue);
         
-        /*
-        SEND X% OF LOSING HOUSE'S DOTX TO STAKING ADDRESSES
-        */
-        uint256 stakingValue = calculateBurnStaking(losingHouse, false, warIndex);
-        sendToStakingPools(stakingValue, warIndex);
         
-        
-        emit StakeBurn(warIndex, burnValue, stakingValue);
-    }
-
-    function sendToStakingPools(uint256 stakingValue, uint256 warIndex) private{
-        earlyPool.addDoTxToPool(stakingValue, earlyPool.getLongNightIndex(), warIndex, wars[warIndex].startTime.add(wars[warIndex].duration));
+        emit StakeBurn(warIndex, burnValue);
     }
     
     /*******************************
@@ -507,8 +648,7 @@ contract DoTxGameContract is Ownable {
      * Return burn stake information
      **/
     function getBurnStake(uint256 warIndex) public view returns(BurnStake memory){
-        return BurnStake(calculateBurnStaking(wars[warIndex].firstHouse, true, warIndex), calculateBurnStaking(wars[warIndex].firstHouse, false, warIndex),
-        calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, false, warIndex));
+        return BurnStake(calculateBurnStaking(wars[warIndex].firstHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex));
     }
     
     function getWarsHouses(uint256 min, uint256 max) public view returns (WarHouses[] memory){
@@ -537,17 +677,15 @@ contract DoTxGameContract is Ownable {
      /**
      * Set staking % of the losing house's DoTx to send for the currentWar
      **/
-    function setStakingBurnPercentageWar(uint256 _burnPercentage, uint256 _stakingPercentage, uint256 warIndex) public onlyOwner{
+    function setStakingBurnPercentageWar(uint256 _burnPercentage, uint256 warIndex) public onlyOwner{
         wars[warIndex].burnPercentage = _burnPercentage;
-        wars[warIndex].stakingPercentage = _stakingPercentage;
     }
     
     /**
      * Set staking % of the losing house's DoTx to send
      **/
-    function setStakingBurnPercentage(uint256 _burnPercentage, uint256 _stakingPercentage) public onlyOwner{
+    function setStakingBurnPercentage(uint256 _burnPercentage) public onlyOwner{
         burnPercentage = _burnPercentage;
-        stakingPercentage = _stakingPercentage;
     }
     
     /**
@@ -577,7 +715,7 @@ contract DoTxGameContract is Ownable {
     /**
      * Let owner set the DoTxLib address
      **/
-    function setDoTxLibs(address dotxLibAddr, bool setupAddressInLib, address earlyPoolAddr, address manaPoolAddr, bool setupAddressInPool, bool approveEarly) public onlyOwner {
+    function setDoTxLibs(address dotxLibAddr, bool setupAddressInLib, address manaPoolAddr, bool setupAddressInPool) public onlyOwner {
         //DOTX lib mainly uses for Chainlink
         dotxLibAddress = dotxLibAddr;
         dotxLib = IDoTxLib(dotxLibAddress);
@@ -585,25 +723,20 @@ contract DoTxGameContract is Ownable {
             dotxLib.setDoTxGame(address(this));
         }
         
-        //Early Pool
-        earlyPool = IEarlyPoolContract(earlyPoolAddr);
+        //Mana Pool
         manaPool = IManaPoolContract(manaPoolAddr);
         if(setupAddressInPool){
-            earlyPool.setDoTxGame(address(this));
             manaPool.setDoTxGame(address(this));
-        }
-        if(approveEarly){
-            dotxToken.approve(earlyPoolAddr, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
         }
     }
     
     /**
      * Configure early pool requierements
-     **/
+     *
     function setEarlyConfig(uint256 _maxPercentJoinEarly, uint256 _minDoTxEarly) public{
         maxPercentJoinEarly = _maxPercentJoinEarly;
         minDoTxEarly = _minDoTxEarly;
-    }
+    }*/
 
 
     /****************************
@@ -623,11 +756,11 @@ contract DoTxGameContract is Ownable {
     
      /**
      * Check if the user isEarly in the current war
-     **/
+     *
     function isEarly(uint256 _doTxSpent, uint256 warIndex) private view returns(bool){
         bool isEarlyPeriod = wars[warIndex].startTime.add(((wars[warIndex].duration.mul(10000)).mul(maxPercentJoinEarly).div(100)).div(10000))  > now;
         return _doTxSpent >= minDoTxEarly && isEarlyPeriod;
-    }
+    }*/
 
     /**
      * Calculate the reward for the current user
@@ -643,14 +776,14 @@ contract DoTxGameContract is Ownable {
         
         //Total DoTx in house's balance
         uint256 totalDoTxWinningHouse = getHouseStg(_winningHouse, warIndex).ticketsBought.mul(wars[warIndex].ticketPrice);
-        uint256 totalDoTxLosingHouse = losingHouse.ticketsBought.mul(wars[warIndex].ticketPrice).sub(calculateBurnStaking(losingHouse, true, warIndex)).sub(calculateBurnStaking(losingHouse, false, warIndex));
+        uint256 totalDoTxLosingHouse = losingHouse.ticketsBought.mul(wars[warIndex].ticketPrice).sub(calculateBurnStaking(losingHouse, true, warIndex));
         
         return dotxLib.calculateReward(getUserDoTxInBalance(warIndex, userAddress), totalDoTxWinningHouse, totalDoTxLosingHouse);
     }
     
     function calculateBurnStaking(House memory house, bool isBurn, uint256 warIndex) public view returns(uint256){
         uint256 ticketsBoughtValueDoTx = house.ticketsBought.mul(wars[warIndex].ticketPrice);
-        uint256 percentage =  isBurn ? wars[warIndex].burnPercentage : wars[warIndex].stakingPercentage;
+        uint256 percentage =  wars[warIndex].burnPercentage;
         //Calculate tickets remaining after burn
         return dotxLib.calculatePercentage(ticketsBoughtValueDoTx, percentage, selectWinnerPrecision);
     }

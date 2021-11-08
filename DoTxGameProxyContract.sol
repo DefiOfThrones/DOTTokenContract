@@ -112,9 +112,7 @@ contract DoTxGameProxyContract is Ownable{
     //BURN STAKING INFORMATION
     struct BurnStake {
         uint256 firstHouseBurnDoTx;
-        uint256 firstHouseStakingDoTx;
         uint256 secondHouseBurnDoTx;
-        uint256 secondHouseStakingDoTx;
     }
     
     struct UserStats {
