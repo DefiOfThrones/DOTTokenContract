@@ -1,7 +1,149 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "https://raw.githubusercontent.com/DefiOfThrones/DOTTokenContract/master/libs/SafeMath.sol";
+library SafeMath {
+    /**
+     * @dev Returns the addition of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `+` operator.
+     *
+     * Requirements:
+     *
+     * - Addition cannot overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sub(a, b, "SafeMath: subtraction overflow");
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b <= a, errorMessage);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `*` operator.
+     *
+     * Requirements:
+     *
+     * - Multiplication cannot overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return div(a, b, "SafeMath: division by zero");
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts with custom message on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b > 0, errorMessage);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return mod(a, b, "SafeMath: modulo by zero");
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts with custom message when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+}
 
 interface IDoTxTokenContract{
   function transfer(address recipient, uint256 amount) external returns (bool);
@@ -10,6 +152,25 @@ interface IDoTxTokenContract{
 
 interface IDoTxNFTContract{
   function transferFrom(address from, address to, uint256 tokenId) external;
+}
+
+interface IManaPoolLib{
+    struct Stake {
+        uint256 startTime;
+        uint256 lpUniAmount;
+        uint256 lpPancakeAmount;
+        uint256 currentReward;
+    }
+
+    function getStake(address userAddress) external view returns(IManaPoolLib.Stake memory);
+    function getStartTime(address user) external view returns(uint256);
+    function getLpUniAmount(address user) external view returns(uint256);
+    function getLpPancakeAmount(address user) external view returns(uint256);
+    function getCurrentReward(address user) external view returns(uint256);
+    function setStartTime(address user, uint256 value) external;
+    function setLpUniAmount(address user, uint256 value) external;
+    function setLpPancakeAmount(address user, uint256 value) external;
+    function setCurrentReward(address user, uint256 value) external;
 }
 
 contract Context {
@@ -68,25 +229,17 @@ contract Ownable is Context {
 contract ManaPoolContract is Ownable {
     using SafeMath for uint256;
     
-    //Stake Struct
-    struct Stake {
-        uint256 startTime;
-        uint256 lpUniAmount;
-        uint256 lpMaticAmount;
-        uint256 currentReward;
-    }
-    
     //Stake NFT
     struct NFT {
         uint256 manaRequired;
     }
     
-    IDoTxTokenContract private lpUniToken;
-    IDoTxTokenContract private lpMaticToken;
+    IDoTxTokenContract private lpPancakeToken;
     IDoTxNFTContract private dotxNFT;
+    IManaPoolLib private manaPoolLib;
 
     //Map of Stake per user address 
-    mapping(address => Stake) public stakes;
+    
     mapping(uint256 => uint256) public manaBonus;
     //Early bonus
     uint256 public earlyBonusPercentage = 30;
@@ -98,9 +251,10 @@ contract ManaPoolContract is Ownable {
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 warBonus, uint256 ticketsNumber);
     
-    constructor(address dotxUniLpTokenAddress, address dotxNFTAddress) public {
-        setDoTxUniLP(dotxUniLpTokenAddress);
+    constructor(address dotxPancakeLp, address dotxNFTAddress, address manaPoolAddress) public {
+        setDoTxPancakeLP(dotxPancakeLp);
         setDoTxNFT(dotxNFTAddress);
+        setManaPoolLib(manaPoolAddress);
     }
     
     /**
@@ -110,13 +264,13 @@ contract ManaPoolContract is Ownable {
     **/
     function addTokens(uint256 _amountInWei, bool _isUni) public {
         if(getTotalLpTokens(msg.sender) != 0){
-            stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
+            manaPoolLib.setCurrentReward(msg.sender, getCurrentReward(msg.sender));
         }
 
-        require((_isUni ? lpUniToken : lpMaticToken).transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
+        require(lpPancakeToken.transferFrom(msg.sender, address(this), _amountInWei), "Transfer failed");
         
         addRemoveLpTokens(_amountInWei, msg.sender, true, _isUni);
-        stakes[msg.sender].startTime = now;
+        manaPoolLib.setStartTime(msg.sender, now);
         
         emit AddTokens(_amountInWei, msg.sender, _isUni);
     }
@@ -127,13 +281,13 @@ contract ManaPoolContract is Ownable {
     * _amountInWei Number of LP tokens
     **/
     function removeTokens(uint256 _amountInWei, bool _isUni) public {
-        require((_isUni ? stakes[msg.sender].lpUniAmount : stakes[msg.sender].lpMaticAmount) >= _amountInWei , "Not enought LP");
+        require((_isUni ? manaPoolLib.getLpUniAmount(msg.sender) : manaPoolLib.getLpPancakeAmount(msg.sender)) >= _amountInWei , "Not enought LP");
         
-        stakes[msg.sender].currentReward = getCurrentReward(msg.sender);
-        stakes[msg.sender].startTime = now;
+        manaPoolLib.setCurrentReward(msg.sender, getCurrentReward(msg.sender));
+        manaPoolLib.setStartTime(msg.sender, now);
         addRemoveLpTokens(_amountInWei, msg.sender, false, _isUni);
 
-        require((_isUni ? lpUniToken : lpMaticToken).transfer(msg.sender, _amountInWei), "Transfer failed");
+        require(lpPancakeToken.transfer(msg.sender, _amountInWei), "Transfer failed");
         
         emit RemoveTokens(_amountInWei, msg.sender, _isUni);
     }
@@ -148,21 +302,21 @@ contract ManaPoolContract is Ownable {
         uint256 newReward = _ticketsNumber.mul(manaMultiplicator).mul(1000000000000000000); // 1 ticket == (1 MANA * MANABONUS)
         newReward = newReward.add(_isEarly ? calculatePercentage(newReward, earlyBonusPercentage, 100000) : 0);// Early bonus
         
-        stakes[_userAddress].currentReward = getCurrentReward(_userAddress);
-        stakes[_userAddress].startTime = now;
-        stakes[_userAddress].currentReward = stakes[_userAddress].currentReward.add(newReward);
+        manaPoolLib.setCurrentReward(_userAddress, getCurrentReward(_userAddress));
+        manaPoolLib.setStartTime(_userAddress, now);
+        manaPoolLib.setCurrentReward(_userAddress, manaPoolLib.getCurrentReward(_userAddress).add(newReward));
         
         emit AddRewardFromTickets(_warIndex, newReward, _dotxAmountInWei, _userAddress, _isEarly, manaMultiplicator, _ticketsNumber);
     }
     
     function getCurrentReward(address _userAddress) view public returns(uint256){
-        uint256 diffTimeSec = now.sub(stakes[_userAddress].startTime);
+        uint256 diffTimeSec = now.sub(manaPoolLib.getStartTime(_userAddress));
         
         uint256 rewardPerSecond = calculateRewardPerSecond(getTotalLpTokens(_userAddress));
         
         //Previous reward + new reward
         uint256 newReward = diffTimeSec.mul(rewardPerSecond);
-        return stakes[_userAddress].currentReward.add(newReward);
+        return manaPoolLib.getCurrentReward(_userAddress).add(newReward);
     }
     
     function calculateRewardPerSecond(uint256 _amount) public pure returns(uint256){
@@ -175,8 +329,8 @@ contract ManaPoolContract is Ownable {
         return amount.div(_amount.mul(a).add(b)).div(60).div(denom);
     }
     
-    function getStake(address userAddress) public view returns(Stake memory){
-        return stakes[userAddress];
+    function getStake(address userAddress) public view returns(IManaPoolLib.Stake memory){
+        return manaPoolLib.getStake(userAddress);
     }
     
     function setDoTxGame(address gameAddress) public onlyOwner{
@@ -191,16 +345,16 @@ contract ManaPoolContract is Ownable {
         manaBonus[_warIndex] = _manaBonus;
     }
     
-    function setDoTxUniLP(address dotxLpTokenAddress) public onlyOwner{
-        lpUniToken = IDoTxTokenContract(dotxLpTokenAddress);
-    }
-    
-    function setDoTxMaticLP(address dotxLpTokenAddress) public onlyOwner{
-        lpMaticToken = IDoTxTokenContract(dotxLpTokenAddress);
+    function setDoTxPancakeLP(address dotxLpTokenAddress) public onlyOwner{
+        lpPancakeToken = IDoTxTokenContract(dotxLpTokenAddress);
     }
     
     function setDoTxNFT(address dotxNFTAddress) public onlyOwner{
         dotxNFT = IDoTxNFTContract(dotxNFTAddress);
+    }
+
+    function setManaPoolLib(address manaPoolAddress) public onlyOwner{
+        manaPoolLib = IManaPoolLib(manaPoolAddress);
     }
     
     function setearlyBonusPercentage(uint256 _earlyBonusPercentage) public onlyOwner{
@@ -247,11 +401,11 @@ contract ManaPoolContract is Ownable {
     function claimNFT(uint256 _nftId) public{
         uint256 manaRequired = nfts[_nftId].manaRequired;
         
-        stakes[_msgSender()].currentReward = getCurrentReward(_msgSender());
-        require(stakes[_msgSender()].currentReward >= manaRequired, "Not enought MANA");
+        manaPoolLib.setCurrentReward(_msgSender(), getCurrentReward(_msgSender()));
+        require(manaPoolLib.getCurrentReward(_msgSender()) >= manaRequired, "Not enought MANA");
         
-        stakes[_msgSender()].currentReward = stakes[_msgSender()].currentReward.sub(manaRequired);
-        stakes[_msgSender()].startTime = now;
+        manaPoolLib.setCurrentReward(_msgSender(), manaPoolLib.getCurrentReward(msg.sender).sub(manaRequired));
+        manaPoolLib.setStartTime(_msgSender(), now);
         
         dotxNFT.transferFrom(address(this), _msgSender(), _nftId);
         
@@ -277,14 +431,14 @@ contract ManaPoolContract is Ownable {
     }
     
     function getTotalLpTokens(address _user) public view returns(uint256){
-        return stakes[_user].lpUniAmount.add(stakes[_user].lpMaticAmount);
+        return manaPoolLib.getLpUniAmount(_user).add(manaPoolLib.getLpPancakeAmount(_user));
     }
     
     function addRemoveLpTokens(uint256 _amountInWei, address _user, bool _isAdd, bool _isUni) private {
         if(_isUni){
-            stakes[_user].lpUniAmount = stakes[_user].lpUniAmount.add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0);
+            manaPoolLib.setLpUniAmount(_user, manaPoolLib.getLpUniAmount(_user).add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0));
         }else{
-            stakes[_user].lpMaticAmount = stakes[_user].lpMaticAmount.add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0);
+            manaPoolLib.setLpPancakeAmount(_user, manaPoolLib.getLpPancakeAmount(_user).add(_isAdd ? _amountInWei : 0).sub(!_isAdd ? _amountInWei : 0));
         }
     }
 }
