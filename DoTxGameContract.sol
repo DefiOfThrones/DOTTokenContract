@@ -322,11 +322,13 @@ contract DoTxGameContract is Ownable {
     
     uint256 public burnPercentage = 5;
     uint256 public stakingPercentage = 10;
-    int256 public multiplicator = 10000;
+    int256 public multiplicator = 10000000;
     
     //EARLY POOL
     uint256 public maxPercentJoinEarly = 25;//25%
     //uint256 public minDoTxEarly = 500000000000000000000;// 500 DoTx
+
+    uint256 public warIndex;
     
     //EVENTS
     event WarStarted(uint256 warIndex);
@@ -338,25 +340,25 @@ contract DoTxGameContract is Ownable {
     event StakeBurn(uint256 warIndex, uint256 burnValue);
 
     //MODIFIERS
-    modifier onlyIfCurrentWarFinished(uint256 warIndex) {
-        require(wars[warIndex].startTime.add(wars[warIndex].duration) <= now || warIndex == 0, "Current war not finished");
+    modifier onlyIfCurrentWarFinished(uint256 _warIndex) {
+        require(wars[_warIndex].startTime.add(wars[_warIndex].duration) <= now || _warIndex == 0, "Current war not finished");
         _;
     }
     
-    modifier onlyIfCurrentWarNotFinished(uint256 warIndex) {
-        require(wars[warIndex].startTime.add(wars[warIndex].duration) > now, "Current war finished");
+    modifier onlyIfCurrentWarNotFinished(uint256 _warIndex) {
+        require(wars[_warIndex].startTime.add(wars[_warIndex].duration) > now, "Current war finished");
         _;
     }
     
-    modifier onlyIfTicketsPurchasable(uint256 warIndex) {
-        require(now.sub(wars[warIndex].startTime) < wars[warIndex].purchasePeriod,
+    modifier onlyIfTicketsPurchasable(uint256 _warIndex) {
+        require(now.sub(wars[_warIndex].startTime) < wars[_warIndex].purchasePeriod,
         "Purchase tickets period ended");
         _;
     }
     
-    modifier onlyIfPricesFetched(uint256 warIndex){
-        require(wars[warIndex].firstHouse.openPrice != 0 && wars[warIndex].secondHouse.openPrice != 0, "Open prices not fetched");
-        require(wars[warIndex].firstHouse.closePrice != 0 && wars[warIndex].secondHouse.closePrice != 0, "Close prices not fetched");
+    modifier onlyIfPricesFetched(uint256 _warIndex){
+        require(wars[_warIndex].firstHouse.openPrice != 0 && wars[_warIndex].secondHouse.openPrice != 0, "Open prices not fetched");
+        require(wars[_warIndex].firstHouse.closePrice != 0 && wars[_warIndex].secondHouse.closePrice != 0, "Close prices not fetched");
         _;
     }
     
@@ -387,21 +389,19 @@ contract DoTxGameContract is Ownable {
      * _warIndex Index of the war in mapping
      **/
     function startWar(string memory _firstHouseTicker, string memory _secondHouseTicker, string memory _firstHouseId, string memory _secondHouseId, 
-    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, uint256 _warIndex) 
-    public onlyOwner returns(bool) {
-        //Just prevent to replace a war
-        require(_warIndex > dotxLib.getWarIndex(), "War index already exists");
+    uint256 _duration, uint256 _ticketPrice, uint256 _purchasePeriod, uint256 _warFeesPercent, uint256 _priceFstHouse, uint256 _priceSndHouse) 
+    public onlyOwner {
         
         //Create war  
-        wars[_warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, 
+        wars[warIndex] = War(now, _duration, _ticketPrice, _purchasePeriod, 0, _warFeesPercent, multiplicator, burnPercentage, 
         House(stringToBytes32(_firstHouseTicker), stringToBytes32(_firstHouseId), 0, 0, 0),
         House(stringToBytes32(_secondHouseTicker), stringToBytes32(_secondHouseId), 0, 0, 0));
         
-        emit WarStarted(_warIndex);
+        emit WarStarted(warIndex);
         
-        fetchFirstDayPrices(_warIndex);
+        setHouseOpen(_priceFstHouse, _priceSndHouse, warIndex);
         
-        return true;
+        warIndex = warIndex.add(1);
     }
     
     /**
@@ -410,32 +410,32 @@ contract DoTxGameContract is Ownable {
     * _houseTicker House ticker 
     * _numberOfTicket The number of tickets the user wants to buy
     **/
-    function buyTickets(string memory _houseTicker, uint _numberOfTicket, uint256 warIndex) public onlyIfTicketsPurchasable(warIndex) {
+    function buyTickets(string memory _houseTicker, uint _numberOfTicket, uint256 _warIndex) public onlyIfTicketsPurchasable(_warIndex) {
         bytes32 houseTicker = stringToBytes32(_houseTicker);
         //Get house storage
-        House storage userHouse = getHouseStg(houseTicker, warIndex);
+        House storage userHouse = getHouseStg(houseTicker, _warIndex);
         
         //Allow user to only buy tickets for one single House and the one passed in parameter
-        require(userHouse.houseTicker == houseTicker && (wars[warIndex].users[msg.sender].houseTicker == houseTicker || wars[warIndex].users[msg.sender].houseTicker == 0), "You can not buy tickets for the other house");
+        require(userHouse.houseTicker == houseTicker && (wars[_warIndex].users[msg.sender].houseTicker == houseTicker || wars[_warIndex].users[msg.sender].houseTicker == 0), "You can not buy tickets for the other house");
 
-        wars[warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
+        wars[_warIndex].users[msg.sender].houseTicker = userHouse.houseTicker;
 
         //Update user tickets
-        wars[warIndex].users[msg.sender].ticketsBought = wars[warIndex].users[msg.sender].ticketsBought.add(_numberOfTicket);
+        wars[_warIndex].users[msg.sender].ticketsBought = wars[_warIndex].users[msg.sender].ticketsBought.add(_numberOfTicket);
         
         //Increase tickets bought for the house
         userHouse.ticketsBought = userHouse.ticketsBought.add(_numberOfTicket);
         
-        uint256 valueInDoTx = wars[warIndex].ticketPrice.mul(_numberOfTicket);
+        uint256 valueInDoTx = wars[_warIndex].ticketPrice.mul(_numberOfTicket);
         
         //Propagate TicketBought event
-        emit TicketBought(warIndex, _houseTicker, valueInDoTx, msg.sender, "BOUGHT");
+        emit TicketBought(_warIndex, _houseTicker, valueInDoTx, msg.sender, "BOUGHT");
         
         //Transfer DoTx
         dotxToken.transferFrom(msg.sender, address(this), valueInDoTx);
         
         //Mana POOL
-        manaPool.addRewardFromTickets(warIndex, _numberOfTicket, valueInDoTx, msg.sender, false);
+        manaPool.addRewardFromTickets(_warIndex, _numberOfTicket, valueInDoTx, msg.sender, false);
     }
     
     /**
@@ -444,35 +444,35 @@ contract DoTxGameContract is Ownable {
      * _fromHouseTicker Current house user pledged allegiance 
      * _toHouseTicker the house user wants to join
      **/
-    function switchHouse(string memory _fromHouseTicker, string memory _toHouseTicker, uint256 warIndex) public onlyIfTicketsPurchasable(warIndex) {
+    function switchHouse(string memory _fromHouseTicker, string memory _toHouseTicker, uint256 _warIndex) public onlyIfTicketsPurchasable(_warIndex) {
 
         bytes32 fromHouseTicker = stringToBytes32(_fromHouseTicker);
         bytes32 toHouseTicker = stringToBytes32(_toHouseTicker);
         
         //Check if toHouse is in competition && different of fromHouse
-        require(checkIfHouseInCompetition(toHouseTicker, warIndex) && fromHouseTicker != toHouseTicker, "House not in competition");
+        require(checkIfHouseInCompetition(toHouseTicker, _warIndex) && fromHouseTicker != toHouseTicker, "House not in competition");
         //Check if user belongs to _fromHouse 
-        require(wars[warIndex].users[msg.sender].houseTicker == fromHouseTicker, "User doesn't belong to fromHouse");
+        require(wars[_warIndex].users[msg.sender].houseTicker == fromHouseTicker, "User doesn't belong to fromHouse");
         
-        House storage fromHouse = getHouseStg(fromHouseTicker, warIndex);
-        House storage toHouse = getHouseStg(toHouseTicker, warIndex);
+        House storage fromHouse = getHouseStg(fromHouseTicker, _warIndex);
+        House storage toHouse = getHouseStg(toHouseTicker, _warIndex);
         
         //Switch house for user
-        wars[warIndex].users[msg.sender].houseTicker = toHouseTicker;
+        wars[_warIndex].users[msg.sender].houseTicker = toHouseTicker;
         
         //Update fromHouse tickets
-        uint256 ticketsBoughtByUser = wars[warIndex].users[msg.sender].ticketsBought;
+        uint256 ticketsBoughtByUser = wars[_warIndex].users[msg.sender].ticketsBought;
         fromHouse.ticketsBought = fromHouse.ticketsBought.sub(ticketsBoughtByUser);
         
         //Update toHouse tickets
         toHouse.ticketsBought = toHouse.ticketsBought.add(ticketsBoughtByUser);
         
         //Get fees
-        uint256 feesToBePaid = getFeesForSwitchHouse(msg.sender, warIndex);
+        uint256 feesToBePaid = getFeesForSwitchHouse(msg.sender, _warIndex);
         //Update total fees
         totalFees = totalFees.add(feesToBePaid);
         
-        emit SwitchHouse(warIndex, _fromHouseTicker, _toHouseTicker, msg.sender, feesToBePaid);
+        emit SwitchHouse(_warIndex, _fromHouseTicker, _toHouseTicker, msg.sender, feesToBePaid);
         
         //Get fees from user wallet
         dotxToken.transferFrom(msg.sender, address(this), feesToBePaid);
@@ -492,23 +492,23 @@ contract DoTxGameContract is Ownable {
      * Allow users who pledged allegiance to the winning house to claim bought tickets + reward
      * Parameters :
      **/
-    function claimRewardAndTickets(uint256 warIndex) public onlyIfCurrentWarFinished(warIndex) returns(bool) {
+    function claimRewardAndTickets(uint256 _warIndex) public onlyIfCurrentWarFinished(_warIndex) returns(bool) {
         //Only claim reward one times
-        require(wars[warIndex].users[msg.sender].rewardClaimed == false, "You already claimed your reward");
+        require(wars[_warIndex].users[msg.sender].rewardClaimed == false, "You already claimed your reward");
         
         //Check if user belongs to winning house
-        require(wars[warIndex].users[msg.sender].ticketsBought > 0 && wars[warIndex].users[msg.sender].houseTicker == wars[warIndex].winningHouse, "User doesn't belong to winning house");
+        require(wars[_warIndex].users[msg.sender].ticketsBought > 0 && wars[_warIndex].users[msg.sender].houseTicker == wars[_warIndex].winningHouse, "User doesn't belong to winning house");
         
         //Set rewardClaimed to true
-        wars[warIndex].users[msg.sender].rewardClaimed = true;
+        wars[_warIndex].users[msg.sender].rewardClaimed = true;
         
         //DoTx in user balance (tickets bought) & reward
-        uint256 reward = getCurrentReward(wars[warIndex].winningHouse, msg.sender, warIndex);
-        uint256 balance = getUserDoTxInBalance(warIndex, msg.sender);
+        uint256 reward = getCurrentReward(wars[_warIndex].winningHouse, msg.sender, _warIndex);
+        uint256 balance = getUserDoTxInBalance(_warIndex, msg.sender);
         
         dotxToken.transfer(msg.sender, reward.add(balance));
         
-        emit ClaimReward(warIndex, reward, balance, msg.sender, "CLAIM");
+        emit ClaimReward(_warIndex, reward, balance, msg.sender, "CLAIM");
     }
 
     
@@ -517,52 +517,28 @@ contract DoTxGameContract is Ownable {
     ******************************/
     
     /**
-     * Fetch the prices for the 2 houses the first day for the current war
-     **/
-    function fetchFirstDayPrices(uint256 warIndex) public onlyOwner {
-        require(wars[warIndex].firstHouse.openPrice == 0 && wars[warIndex].secondHouse.openPrice == 0, "Open prices already fetched");
-        
-        string memory firstHouse = bytes32ToString(wars[warIndex].firstHouse.houseTicker);
-        string memory secondHouse = bytes32ToString(wars[warIndex].secondHouse.houseTicker);
-        
-        dotxLib.fetchFirstDayPrices(firstHouse, secondHouse, bytes32ToString(wars[warIndex].firstHouse.houseId), bytes32ToString(wars[warIndex].secondHouse.houseId), wars[warIndex].multiplicator, warIndex);
-    }
-
-    /**
-     * Fetch the prices for the 2 houses the last day for the current war
-     **/
-    function fetchLastDayPrices(uint256 warIndex) public onlyOwner onlyIfCurrentWarFinished(warIndex) {
-        require(wars[warIndex].firstHouse.closePrice == 0 && wars[warIndex].secondHouse.closePrice == 0, "Close prices already fetched");
-        
-        string memory firstHouse = bytes32ToString(wars[warIndex].firstHouse.houseTicker);
-        string memory secondHouse = bytes32ToString(wars[warIndex].secondHouse.houseTicker);
-        
-        dotxLib.fetchLastDayPrices(firstHouse, secondHouse, bytes32ToString(wars[warIndex].firstHouse.houseId), bytes32ToString(wars[warIndex].secondHouse.houseId), wars[warIndex].multiplicator, warIndex);
-    }
-    
-    /**
      * Elect the winner based on open prices & close prices
      **/
-    function selectWinner(uint256 warIndex) public onlyOwner onlyIfCurrentWarFinished(warIndex) onlyIfPricesFetched(warIndex) {
-        require(wars[warIndex].winningHouse == 0, "Winner already selected");
+    function selectWinner(uint256 _warIndex) public onlyOwner onlyIfCurrentWarFinished(_warIndex) onlyIfPricesFetched(_warIndex) {
+        //require(wars[_warIndex].winningHouse == 0, "Winner already selected");
         
         int256 precision = int256(selectWinnerPrecision);
         
-        int256 firstHousePerf =  dotxLib.calculateHousePerf(int256(wars[warIndex].firstHouse.openPrice), int256(wars[warIndex].firstHouse.closePrice), precision);
-        int256 secondHousePerf = dotxLib.calculateHousePerf(int256(wars[warIndex].secondHouse.openPrice), int256(wars[warIndex].secondHouse.closePrice), precision);
+        int256 firstHousePerf =  dotxLib.calculateHousePerf(int256(wars[_warIndex].firstHouse.openPrice), int256(wars[_warIndex].firstHouse.closePrice), precision);
+        int256 secondHousePerf = dotxLib.calculateHousePerf(int256(wars[_warIndex].secondHouse.openPrice), int256(wars[_warIndex].secondHouse.closePrice), precision);
         
         //Set winner house
-        wars[warIndex].winningHouse = (firstHousePerf > secondHousePerf ? wars[warIndex].firstHouse : wars[warIndex].secondHouse).houseTicker;
-        House memory losingHouse = (firstHousePerf > secondHousePerf ? wars[warIndex].secondHouse : wars[warIndex].firstHouse);
+        wars[_warIndex].winningHouse = (firstHousePerf > secondHousePerf ? wars[_warIndex].firstHouse : wars[_warIndex].secondHouse).houseTicker;
+        House memory losingHouse = (firstHousePerf > secondHousePerf ? wars[_warIndex].secondHouse : wars[_warIndex].firstHouse);
         
         /*
         BURN X% OF LOSING HOUSE'S DOTX
         */
-        uint256 burnValue = calculateBurnStaking(losingHouse, true, warIndex);
+        uint256 burnValue = calculateBurnStaking(losingHouse, true, _warIndex);
         dotxToken.transfer(BURN_ADDRESS, burnValue);
         
         
-        emit StakeBurn(warIndex, burnValue);
+        emit StakeBurn(_warIndex, burnValue);
     }
     
     /*******************************
@@ -572,45 +548,21 @@ contract DoTxGameContract is Ownable {
     /**
      * Handler method called by Chainlink for the first house open price 
      **/
-    function firstHouseOpen(uint256 _price, uint256 warIndex) external onlyDoTxLib {
-        wars[warIndex].firstHouse.openPrice = _price;
-        openPriceEvent(warIndex);
-    }
-    /**
-     * Handler method called by Chainlink for the second house open price 
-     **/
-    function secondHouseOpen(uint256 _price, uint256 warIndex) external onlyDoTxLib {
-        wars[warIndex].secondHouse.openPrice = _price;
-        openPriceEvent(warIndex);
+    function setHouseOpen(uint256 _priceFirst, uint256 _priceSecond, uint256 _warIndex) public onlyOwner {
+        wars[_warIndex].firstHouse.openPrice = _priceFirst;
+        wars[_warIndex].secondHouse.openPrice = _priceSecond;
+        emit openPriceFetched(_warIndex);
     }
     /**
      * Handler method called by Chainlink for the first house close price 
      **/
-    function firstHouseClose(uint256 _price, uint256 warIndex) external onlyDoTxLib {
-        wars[warIndex].firstHouse.closePrice = _price;
-        closePriceEvent(warIndex);
-    }
-    /**
-     * Handler method called by Chainlink for the second house close price 
-     **/
-    function secondHouseClose(uint256 _price, uint256 warIndex) external onlyDoTxLib {
-        wars[warIndex].secondHouse.closePrice = _price;
-        closePriceEvent(warIndex);
-    }
-    /**
-     * Emit openPriceFetched event if needed
-     **/
-    function openPriceEvent(uint256 warIndex) private {
-        if(wars[warIndex].firstHouse.openPrice != 0 && wars[warIndex].secondHouse.openPrice != 0){
-            emit openPriceFetched(warIndex);
-        }
-    }
-    /**
-     * Emit closePriceFetched event if needed
-     **/
-    function closePriceEvent(uint256 warIndex) private {
-        if(wars[warIndex].firstHouse.closePrice != 0 && wars[warIndex].secondHouse.closePrice != 0){
-            emit closePriceFetched(warIndex);
+    function setHouseClose(uint256 _priceFirst, uint256 _priceSecond, uint256 _warIndex, bool _selectWinner) public onlyOwner {
+        wars[_warIndex].firstHouse.closePrice = _priceFirst;
+        wars[_warIndex].secondHouse.closePrice = _priceSecond;
+        emit closePriceFetched(_warIndex);
+
+        if(_selectWinner){
+            selectWinner(_warIndex);
         }
     }
     
@@ -626,8 +578,8 @@ contract DoTxGameContract is Ownable {
     }
     
     
-    function getFeesForSwitchHouse(address userAddress, uint256 warIndex) public view returns(uint256){
-        return (getUserDoTxInBalance(warIndex, userAddress).mul(wars[warIndex].warFeesPercent)).div(100);
+    function getFeesForSwitchHouse(address userAddress, uint256 _warIndex) public view returns(uint256){
+        return (getUserDoTxInBalance(_warIndex, userAddress).mul(wars[_warIndex].warFeesPercent)).div(100);
     }
     
     /**
@@ -647,8 +599,8 @@ contract DoTxGameContract is Ownable {
     /**
      * Return burn stake information
      **/
-    function getBurnStake(uint256 warIndex) public view returns(BurnStake memory){
-        return BurnStake(calculateBurnStaking(wars[warIndex].firstHouse, true, warIndex), calculateBurnStaking(wars[warIndex].secondHouse, true, warIndex));
+    function getBurnStake(uint256 _warIndex) public view returns(BurnStake memory){
+        return BurnStake(calculateBurnStaking(wars[_warIndex].firstHouse, true, _warIndex), calculateBurnStaking(wars[_warIndex].secondHouse, true, _warIndex));
     }
     
     function getWarsHouses(uint256 min, uint256 max) public view returns (WarHouses[] memory){
@@ -677,8 +629,8 @@ contract DoTxGameContract is Ownable {
      /**
      * Set staking % of the losing house's DoTx to send for the currentWar
      **/
-    function setStakingBurnPercentageWar(uint256 _burnPercentage, uint256 warIndex) public onlyOwner{
-        wars[warIndex].burnPercentage = _burnPercentage;
+    function setStakingBurnPercentageWar(uint256 _burnPercentage, uint256 _warIndex) public onlyOwner{
+        wars[_warIndex].burnPercentage = _burnPercentage;
     }
     
     /**
@@ -691,8 +643,8 @@ contract DoTxGameContract is Ownable {
     /**
      * Precision of the prices receive from WS
      **/
-    function setMultiplicatorWar(int256 _multiplicator, uint256 warIndex) public onlyOwner{
-        wars[warIndex].multiplicator = _multiplicator;
+    function setMultiplicatorWar(int256 _multiplicator, uint256 _warIndex) public onlyOwner{
+        wars[_warIndex].multiplicator = _multiplicator;
     }
     
     /**
@@ -729,61 +681,45 @@ contract DoTxGameContract is Ownable {
             manaPool.setDoTxGame(address(this));
         }
     }
-    
-    /**
-     * Configure early pool requierements
-     *
-    function setEarlyConfig(uint256 _maxPercentJoinEarly, uint256 _minDoTxEarly) public{
-        maxPercentJoinEarly = _maxPercentJoinEarly;
-        minDoTxEarly = _minDoTxEarly;
-    }*/
 
 
     /****************************
             UTILS METHODS
     *****************************/
     
-    function getHouseStg(bytes32 ticker, uint256 warIndex) private view returns(House storage){
-        return wars[warIndex].firstHouse.houseTicker == ticker ? wars[warIndex].firstHouse : wars[warIndex].secondHouse;
+    function getHouseStg(bytes32 ticker, uint256 _warIndex) private view returns(House storage){
+        return wars[_warIndex].firstHouse.houseTicker == ticker ? wars[_warIndex].firstHouse : wars[_warIndex].secondHouse;
     }
     
     /**
      * Check if the house passed in parameter is in the current war
      **/
-    function checkIfHouseInCompetition(bytes32 _houseTicker, uint256 warIndex) private view returns(bool){
-        return wars[warIndex].firstHouse.houseTicker == _houseTicker || wars[warIndex].secondHouse.houseTicker == _houseTicker;
+    function checkIfHouseInCompetition(bytes32 _houseTicker, uint256 _warIndex) private view returns(bool){
+        return wars[_warIndex].firstHouse.houseTicker == _houseTicker || wars[_warIndex].secondHouse.houseTicker == _houseTicker;
     }
-    
-     /**
-     * Check if the user isEarly in the current war
-     *
-    function isEarly(uint256 _doTxSpent, uint256 warIndex) private view returns(bool){
-        bool isEarlyPeriod = wars[warIndex].startTime.add(((wars[warIndex].duration.mul(10000)).mul(maxPercentJoinEarly).div(100)).div(10000))  > now;
-        return _doTxSpent >= minDoTxEarly && isEarlyPeriod;
-    }*/
 
     /**
      * Calculate the reward for the current user
      **/
-    function getCurrentRewardString(string memory _winningHouse, address userAddress, uint256 warIndex) public view returns(uint256){
+    function getCurrentRewardString(string memory _winningHouse, address userAddress, uint256 _warIndex) public view returns(uint256){
         bytes32 winningHouseTicker = stringToBytes32(_winningHouse);
-        return getCurrentReward(winningHouseTicker, userAddress, warIndex);
+        return getCurrentReward(winningHouseTicker, userAddress, _warIndex);
     } 
     
-    function getCurrentReward(bytes32 _winningHouse, address userAddress, uint256 warIndex) public view returns(uint256){
+    function getCurrentReward(bytes32 _winningHouse, address userAddress, uint256 _warIndex) public view returns(uint256){
         //Losing house
-        House memory losingHouse = wars[warIndex].firstHouse.houseTicker == _winningHouse ? wars[warIndex].secondHouse : wars[warIndex].firstHouse;
+        House memory losingHouse = wars[_warIndex].firstHouse.houseTicker == _winningHouse ? wars[_warIndex].secondHouse : wars[_warIndex].firstHouse;
         
         //Total DoTx in house's balance
-        uint256 totalDoTxWinningHouse = getHouseStg(_winningHouse, warIndex).ticketsBought.mul(wars[warIndex].ticketPrice);
-        uint256 totalDoTxLosingHouse = losingHouse.ticketsBought.mul(wars[warIndex].ticketPrice).sub(calculateBurnStaking(losingHouse, true, warIndex));
+        uint256 totalDoTxWinningHouse = getHouseStg(_winningHouse, _warIndex).ticketsBought.mul(wars[_warIndex].ticketPrice);
+        uint256 totalDoTxLosingHouse = losingHouse.ticketsBought.mul(wars[_warIndex].ticketPrice).sub(calculateBurnStaking(losingHouse, true, _warIndex));
         
-        return dotxLib.calculateReward(getUserDoTxInBalance(warIndex, userAddress), totalDoTxWinningHouse, totalDoTxLosingHouse);
+        return dotxLib.calculateReward(getUserDoTxInBalance(_warIndex, userAddress), totalDoTxWinningHouse, totalDoTxLosingHouse);
     }
     
-    function calculateBurnStaking(House memory house, bool isBurn, uint256 warIndex) public view returns(uint256){
-        uint256 ticketsBoughtValueDoTx = house.ticketsBought.mul(wars[warIndex].ticketPrice);
-        uint256 percentage =  wars[warIndex].burnPercentage;
+    function calculateBurnStaking(House memory house, bool isBurn, uint256 _warIndex) public view returns(uint256){
+        uint256 ticketsBoughtValueDoTx = house.ticketsBought.mul(wars[_warIndex].ticketPrice);
+        uint256 percentage =  wars[_warIndex].burnPercentage;
         //Calculate tickets remaining after burn
         return dotxLib.calculatePercentage(ticketsBoughtValueDoTx, percentage, selectWinnerPrecision);
     }
@@ -820,5 +756,9 @@ contract DoTxGameContract is Ownable {
             bytesStringTrimmed[j] = bytesString[j];
         }
         return string(bytesStringTrimmed);
+    }
+
+    function withdrawDoTx(uint256 _amount) public onlyOwner {
+        dotxToken.transfer(owner(), _amount);
     }
 }

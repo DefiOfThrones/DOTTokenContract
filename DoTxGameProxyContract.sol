@@ -64,7 +64,6 @@ interface IDotxGameContract{
         uint256 warFeesPercent;
         int256 multiplicator;
         uint256 burnPercentage;
-        uint256 stakingPercentage;
         House firstHouse;
         House secondHouse;
     }
@@ -74,7 +73,7 @@ interface IDotxGameContract{
         uint256 ticketsBought;
         bool rewardClaimed;
     }
-    
+
     struct House {
         bytes32 houseTicker;
         bytes32 houseId;

@@ -251,10 +251,10 @@ contract ManaPoolContract is Ownable {
     event ClaimNFT(uint256 _mana, address sender);
     event AddRewardFromTickets(uint256 warIndex, uint256 manaEarned, uint256 valueInDoTx, address sender, bool isEarly, uint256 warBonus, uint256 ticketsNumber);
     
-    constructor(address dotxPancakeLp, address dotxNFTAddress, address manaPoolAddress) public {
+    constructor(address dotxPancakeLp, address dotxNFTAddress, address manaPoolLibAddress) public {
         setDoTxPancakeLP(dotxPancakeLp);
         setDoTxNFT(dotxNFTAddress);
-        setManaPoolLib(manaPoolAddress);
+        setManaPoolLib(manaPoolLibAddress);
     }
     
     /**
