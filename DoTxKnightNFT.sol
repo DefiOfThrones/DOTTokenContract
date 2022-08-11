@@ -1649,6 +1649,10 @@ contract DoTxKnightNFT is ERC721, Ownable, ERC721Burnable {
             return result;
         }
     }
+
+    function getTokenInfo(uint256 _tokenId) public view returns(Token memory token) {
+        return tokenInfo[_tokenId];
+    }
     
     function _transfer(address from, address to, uint256 tokenId) internal virtual override {
         super._transfer(from,to,tokenId);
