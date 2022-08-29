@@ -1583,7 +1583,7 @@ contract DoTxKnightNFT is ERC721, Ownable, ERC721Burnable {
         uint256 tokenId;
         int betProtected;
         int rewardMalus;
-        uint256 requiredLevel;
+        uint256 requiredXp;
         string category;
         string itemType;
     }
@@ -1608,16 +1608,16 @@ contract DoTxKnightNFT is ERC721, Ownable, ERC721Burnable {
         _mint(_to, nextDoTxId);
     }
     
-    function mintBatchDoTx(address _to, string memory _collection, int[] memory betProtected, int[] memory rewardMalus, uint256[] memory requiredLevel, string[] memory category, string[] memory itemType) public onlyOwnerOrMinter {
+    function mintBatchDoTx(address _to, string memory _collection, int[] memory betProtected, int[] memory rewardMalus, uint256[] memory requiredXp, string[] memory category, string[] memory itemType) public onlyOwnerOrMinter {
         for(uint256 i=0; i < betProtected.length; i++){
-            mintDoTx(_to, _collection, betProtected[i], rewardMalus[i], requiredLevel[i], category[i], itemType[i]);
+            mintDoTx(_to, _collection, betProtected[i], rewardMalus[i], requiredXp[i], category[i], itemType[i]);
         }
     }
 
-    function fillItemInfo(uint256 tokenId, int betProtected, int rewardMalus, uint256 requiredLevel, string memory category, string memory itemType) public onlyOwnerOrMinter {
+    function fillItemInfo(uint256 tokenId, int betProtected, int rewardMalus, uint256 requiredXp, string memory category, string memory itemType) public onlyOwnerOrMinter {
         tokenInfo[tokenId].betProtected = betProtected;
         tokenInfo[tokenId].rewardMalus = rewardMalus;
-        tokenInfo[tokenId].requiredLevel = requiredLevel;
+        tokenInfo[tokenId].requiredXp = requiredXp;
         tokenInfo[tokenId].category = category;
         tokenInfo[tokenId].itemType = itemType;
     }

@@ -86,7 +86,6 @@ contract Ownable is Context {
 contract DoTxNFTMinter is Ownable {
     address public dotxAddress;
     IDoTxTokenContract private dotxToken;
-    address public revoLibAddress;
     
     IDoTxNFT private dotxNFT;
 
@@ -116,21 +115,21 @@ contract DoTxNFTMinter is Ownable {
         dotxNFTUtils = IDoTxNFTUtils(_dotxNFTUtils);
     }
     
-    function mintRevoSimilarNFTBatch(address[] memory _receivers, string[] memory _collection, int[] memory _betProtected, int[] memory _rewardMalus, uint256[] memory _requiredLevel, string[] memory _category, string[] memory _itemType) public onlyOwner {
+    function mintRevoSimilarNFTBatch(address[] memory _receivers, string[] memory _collection, int[] memory _betProtected, int[] memory _rewardMalus, uint256[] memory _requiredXp, string[] memory _category, string[] memory _itemType) public onlyOwner {
         indexes = new uint256[](_receivers.length);
         
         for(uint256 i=0; i < _receivers.length; i++){
-            dotxNFT.mintDoTx(_receivers[i], _collection[i], _betProtected[i], _rewardMalus[i], _requiredLevel[i], _category[i], _itemType[i]);
+            dotxNFT.mintDoTx(_receivers[i], _collection[i], _betProtected[i], _rewardMalus[i], _requiredXp[i], _category[i], _itemType[i]);
             indexes[i] = dotxNFT.nextDoTxId();
         }
     }
 
-    function mintNFT(address _receiver, string memory _collection, int _betProtected, int _rewardMalus, uint256 _requiredLevel, string memory _category, string memory _itemType) public onlyOwner {
-        dotxNFT.mintDoTx(_receiver, _collection, _betProtected, _rewardMalus, _requiredLevel, _category, _itemType);
+    function mintNFT(address _receiver, string memory _collection, int _betProtected, int _rewardMalus, uint256 _requiredXp, string memory _category, string memory _itemType) public onlyOwner {
+        dotxNFT.mintDoTx(_receiver, _collection, _betProtected, _rewardMalus, _requiredXp, _category, _itemType);
     }
 
-    function mintNFTAndDequeue(address _receiver, string memory _collection, int _betProtected, int _rewardMalus, uint256 _requiredLevel, string memory _category, string memory _itemType) public onlyOwner {
-        dotxNFT.mintDoTx(_receiver, _collection, _betProtected, _rewardMalus, _requiredLevel, _category, _itemType);
+    function mintNFTAndDequeue(address _receiver, string memory _collection, int _betProtected, int _rewardMalus, uint256 _requiredXp, string memory _category, string memory _itemType) public onlyOwner {
+        dotxNFT.mintDoTx(_receiver, _collection, _betProtected, _rewardMalus, _requiredXp, _category, _itemType);
         dotxNFTUtils.dequeuePendingTx();
     }
     
@@ -138,7 +137,7 @@ contract DoTxNFTMinter is Ownable {
         return indexes;
     }
 
-    function withdrawRevo(uint256 _amount) public onlyOwner {
+    function withdrawDoTx(uint256 _amount) public onlyOwner {
         dotxToken.transfer(owner(), _amount);
     }
 }

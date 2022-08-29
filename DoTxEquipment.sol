@@ -16,7 +16,7 @@ interface IDoTxNFT{
         uint256 tokenId;
         int betProtected;
         int rewardMalus;
-        uint256 requiredLevel;
+        uint256 requiredXp;
         string category;
         string itemType;
     }
@@ -28,6 +28,17 @@ interface IDoTxNFT{
   function getTokenInfo(uint256 _tokenId) external view returns(IDoTxNFT.Token memory); 
 }
 
+interface IDoTxEquipmentExternal{
+    function equipMultiple(address _owner, uint256[] memory _items, string[] memory _itemTypes) external;
+    function unEquipMultiple(address _owner, string[] memory _itemTypes) external;
+    function equip(address _owner, uint256 _tokenId, string memory _itemType) external;
+    function unEquip(address _owner, string memory _itemType) external;
+    function getEquipment(address _owner, string memory _itemType) external view returns(uint256);
+}
+
+interface IDoTxXp{
+    function getXp(address _owner) external view returns(uint256);
+}
 
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
@@ -89,10 +100,9 @@ contract DoTxEquipment is Ownable {
     address public dotxAddress;
     IDoTxTokenContract private dotxToken;
     IDoTxNFT private dotxNFT;
+    IDoTxEquipmentExternal private equipmentExternal;
+    IDoTxXp private dotxXp;
 
-    //TODO EXPORT THIS MAP OUTSIDE OF THE CONTRACT
-    mapping(address => mapping(string => uint256)) public equipment; 
-    
     struct EQUIPMENT {
         uint256 head;
         uint256 chest;
@@ -102,11 +112,13 @@ contract DoTxEquipment is Ownable {
         uint256 weapon;
         uint256 shield;
     }
+
     
-    
-    constructor(address _doTxAddress, address _dotxNFT) public{
+    constructor(address _doTxAddress, address _dotxNFT, address _equipmentExternal, address _dotxXp) public{
         setDoTx(_doTxAddress);
         setDoTxNFT(_dotxNFT);
+        setDoTxEquipmentExternal(_equipmentExternal);
+        setDoTxXp(_dotxXp);
     }
 
     function equipMultiple(uint256[] memory _items) public {        
@@ -122,12 +134,15 @@ contract DoTxEquipment is Ownable {
     }
 
     function equip(uint256 _tokenId) public returns(IDoTxNFT.Token memory){
-        dotxNFT.transferFrom(msg.sender, address(this), _tokenId);
+        //dotxNFT.transferFrom(msg.sender, address(this), _tokenId);
 
         string memory itemType = dotxNFT.getTokenInfo(_tokenId).itemType;
         string memory category = dotxNFT.getTokenInfo(_tokenId).category;
+        uint256 requiredXp = dotxNFT.getTokenInfo(_tokenId).requiredXp;
 
-        require(equipment[msg.sender][itemType] == 0, "Item already equipped");
+        require(getEquipmentItem(msg.sender, itemType) == 0, "Item already equipped");
+        require(dotxXp.getXp(msg.sender) >= requiredXp, "Not enough xp to equip item");
+        
 
         if(compareStrings(itemType, "head") || compareStrings(itemType, "chest") || compareStrings(itemType, "arms")
         || compareStrings(itemType, "legs") || compareStrings(itemType, "feet") || compareStrings(itemType, "weapon")){
@@ -136,40 +151,44 @@ contract DoTxEquipment is Ownable {
             if(compareStrings(itemType, "weapon")){
                 if(compareStrings(category, "2h piercing") || compareStrings(category, "2h striking")){
                     //Can be equiped only if no shield
-                    require(equipment[msg.sender]["shiled"] == 0, "Shield already equipped");
+                    require(getEquipmentItem(msg.sender, "shield") == 0, "Shield already equipped");
                 }
             }
         }else if(compareStrings(itemType, "shield")){
             //Can be equiped only if one hand or nothing
             
-            string memory equippedCategory = dotxNFT.getTokenInfo(equipment[msg.sender]["weapon"]).category;
+            string memory equippedCategory = dotxNFT.getTokenInfo(getEquipmentItem(msg.sender, "weapon")).category;
 
-            require(equipment[msg.sender]["weapon"] == 0 
+            require(getEquipmentItem(msg.sender, "weapon") == 0 
             || compareStrings(equippedCategory, "1h piercing") || compareStrings(equippedCategory, "1h striking")
             , "Item cannot be equipped");
         }
 
-        equipment[msg.sender][itemType] = _tokenId;
+        equipmentExternal.equip(msg.sender, _tokenId, itemType);
     }
 
     function unEquip(uint256 _tokenId) public{
         string memory itemType = dotxNFT.getTokenInfo(_tokenId).itemType;
 
-        require(equipment[msg.sender][itemType] != 0, "Item not equipped");
+        require(getEquipmentItem(msg.sender, itemType) != 0, "Item not equipped");
 
-        equipment[msg.sender][itemType] = 0;//Unequip
+        equipmentExternal.unEquip(msg.sender, itemType);
 
-        dotxNFT.transferFrom(address(this), msg.sender, _tokenId);
+        //dotxNFT.transferFrom(address(this), msg.sender, _tokenId);
     }
 
     function getEquipment(address _wallet) public view returns(EQUIPMENT memory){
-        return EQUIPMENT(equipment[msg.sender]["head"],
-        equipment[msg.sender]["chest"],
-        equipment[msg.sender]["arms"],
-        equipment[msg.sender]["legs"],
-        equipment[msg.sender]["feet"],
-        equipment[msg.sender]["weapon"],
-        equipment[msg.sender]["shield"]);
+        return EQUIPMENT(equipmentExternal.getEquipment(_wallet, "head"),
+        equipmentExternal.getEquipment(_wallet, "chest"),
+        equipmentExternal.getEquipment(_wallet, "arms"),
+        equipmentExternal.getEquipment(_wallet, "legs"),
+        equipmentExternal.getEquipment(_wallet, "feet"),
+        equipmentExternal.getEquipment(_wallet, "weapon"),
+        equipmentExternal.getEquipment(_wallet, "shield"));
+    }
+
+    function getEquipmentItem(address _wallet, string memory _itemType) public view returns(uint256){
+        return equipmentExternal.getEquipment(_wallet, _itemType);
     }
     
     /*
@@ -184,7 +203,14 @@ contract DoTxEquipment is Ownable {
         dotxNFT = IDoTxNFT(_dotxNFT);
     }
 
+    function setDoTxEquipmentExternal(address _dotxEquipmentExternal) public onlyOwner {
+        equipmentExternal = IDoTxEquipmentExternal(_dotxEquipmentExternal);
+    }
 
+    function setDoTxXp(address _dotxXp) public onlyOwner {
+        dotxXp = IDoTxXp(_dotxXp);
+    }
+    
     function withdrawDoTx(uint256 _amount) public onlyOwner {
         dotxToken.transfer(owner(), _amount);
     }
