@@ -97,9 +97,9 @@ contract DoTxNFTUtils is Ownable {
     event CreateNFT(address sender, string source, string collection);
     
     struct PENDING_TX {
-        address addressTo;
-        string source;
-        string collection;
+        address[] addressTo;
+        string[] source;
+        string[] collection;
     }
 
 
@@ -112,15 +112,21 @@ contract DoTxNFTUtils is Ownable {
     /*
     Trigger nft creation
     */
-    function triggerCreateNFT(string memory _source, string memory _collection) public payable {
+    function triggerCreateNFT(string[] memory _sources, string[] memory _collections) public payable {
 
         require(msg.value >= bnbFees, "Send the required amount");
 
         payable(owner()).transfer(msg.value);
-                
-        enqueuePendingTx(PENDING_TX(msg.sender, _source, _collection));
-        
-        emit CreateNFT(msg.sender, _source, _collection);
+
+        address[] memory itemToReturn = new address[](_sources.length);
+        string[] memory sources = new string[](_sources.length);
+        string[] memory collections = new string[](_sources.length);
+     
+        enqueuePendingTx(PENDING_TX(itemToReturn, sources, collections));
+
+        for(uint256 i=0; i < sources.length; i++){
+            emit CreateNFT(msg.sender, sources[i], collections[i]);
+        }
         
         counter++;
     }

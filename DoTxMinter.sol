@@ -19,9 +19,9 @@ interface IDoTxNFT{
 
 interface IDoTxNFTUtils{
     struct PENDING_TX {
-        address addressTo;
-        string source;
-        string collection;
+        address[] addressTo;
+        string[] source;
+        string[] collection;
     }
 
     function dequeuePendingTx() external returns (PENDING_TX memory data);
@@ -115,13 +115,14 @@ contract DoTxNFTMinter is Ownable {
         dotxNFTUtils = IDoTxNFTUtils(_dotxNFTUtils);
     }
     
-    function mintRevoSimilarNFTBatch(address[] memory _receivers, string[] memory _collection, int[] memory _betProtected, int[] memory _rewardMalus, uint256[] memory _requiredXp, string[] memory _category, string[] memory _itemType) public onlyOwner {
+    function mintNftsAndDequeue(address[] memory _receivers, string[] memory _collection, int[] memory _betProtected, int[] memory _rewardMalus, uint256[] memory _requiredXp, string[] memory _category, string[] memory _itemType) public onlyOwner {
         indexes = new uint256[](_receivers.length);
         
         for(uint256 i=0; i < _receivers.length; i++){
             dotxNFT.mintDoTx(_receivers[i], _collection[i], _betProtected[i], _rewardMalus[i], _requiredXp[i], _category[i], _itemType[i]);
             indexes[i] = dotxNFT.nextDoTxId();
         }
+        dotxNFTUtils.dequeuePendingTx();
     }
 
     function mintNFT(address _receiver, string memory _collection, int _betProtected, int _rewardMalus, uint256 _requiredXp, string memory _category, string memory _itemType) public onlyOwner {
