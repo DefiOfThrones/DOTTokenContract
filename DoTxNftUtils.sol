@@ -118,15 +118,19 @@ contract DoTxNFTUtils is Ownable {
 
         payable(owner()).transfer(msg.value);
 
-        address[] memory itemToReturn = new address[](_sources.length);
+        address[] memory addresses = new address[](_sources.length);
         string[] memory sources = new string[](_sources.length);
         string[] memory collections = new string[](_sources.length);
-     
-        enqueuePendingTx(PENDING_TX(itemToReturn, sources, collections));
 
-        for(uint256 i=0; i < sources.length; i++){
+        for(uint256 i=0; i < _sources.length; i++){
+            addresses[i] = msg.sender;
+            sources[i] = _sources[i];
+            collections[i] = _collections[i];
+
             emit CreateNFT(msg.sender, sources[i], collections[i]);
         }
+     
+        enqueuePendingTx(PENDING_TX(addresses, sources, collections));
         
         counter++;
     }
