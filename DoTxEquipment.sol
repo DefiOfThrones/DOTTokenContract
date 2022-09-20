@@ -133,6 +133,11 @@ contract DoTxEquipment is Ownable {
         }
     }
 
+    function changeEquipment(uint256[] memory _itemsToUnequip, uint256[] memory _itemsToEquip) public {
+        unEquipMultiple(_itemsToUnequip);
+        equipMultiple(_itemsToEquip);
+    }
+
     function equip(uint256 _tokenId) public returns(IDoTxNFT.Token memory){
         //dotxNFT.transferFrom(msg.sender, address(this), _tokenId);
 
