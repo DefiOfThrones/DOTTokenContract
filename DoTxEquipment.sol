@@ -1,7 +1,7 @@
 pragma solidity ^0.8.3;
 pragma experimental ABIEncoderV2;
 
-interface IDoTxTokenContract{
+interface IDoTxTokenContract {
   function balanceOf(address account) external view returns (uint256);
   function totalSupply() external view returns (uint256);
   function transfer(address recipient, uint256 amount) external returns (bool);
@@ -10,7 +10,7 @@ interface IDoTxTokenContract{
   function approve(address spender, uint256 amount) external returns (bool);
 }
 
-interface IDoTxNFT{
+interface IDoTxNFT {
     struct Token {
         string collection;
         uint256 tokenId;
@@ -21,14 +21,14 @@ interface IDoTxNFT{
         string itemType;
     }
 
-  function nftsDbIds(string memory _collection, string memory _dbId) external view returns (uint256);
-  function mintDoTx(address _to, string memory _collection, int betProtected, int rewardMalus, uint256 requiredLevel, string memory category, string memory itemType) external;
-  function nextDoTxId() external returns(uint256);
-  function transferFrom(address from, address to, uint256 tokenId) external;
-  function getTokenInfo(uint256 _tokenId) external view returns(IDoTxNFT.Token memory); 
+    function nftsDbIds(string memory _collection, string memory _dbId) external view returns (uint256);
+    function mintDoTx(address _to, string memory _collection, int betProtected, int rewardMalus, uint256 requiredLevel, string memory category, string memory itemType) external;
+    function nextDoTxId() external returns(uint256);
+    function transferFrom(address from, address to, uint256 tokenId) external;
+    function getTokenInfo(uint256 _tokenId) external view returns(IDoTxNFT.Token memory); 
 }
 
-interface IDoTxEquipmentExternal{
+interface IDoTxEquipmentExternal {
     function equipMultiple(address _owner, uint256[] memory _items, string[] memory _itemTypes) external;
     function unEquipMultiple(address _owner, string[] memory _itemTypes) external;
     function equip(address _owner, uint256 _tokenId, string memory _itemType) external;
@@ -36,7 +36,7 @@ interface IDoTxEquipmentExternal{
     function getEquipment(address _owner, string memory _itemType) external view returns(uint256);
 }
 
-interface IDoTxXp{
+interface IDoTxXp {
     function getXp(address _owner) external view returns(uint256);
 }
 
@@ -114,7 +114,7 @@ contract DoTxEquipment is Ownable {
     }
 
     
-    constructor(address _doTxAddress, address _dotxNFT, address _equipmentExternal, address _dotxXp) public{
+    constructor(address _doTxAddress, address _dotxNFT, address _equipmentExternal, address _dotxXp) public {
         setDoTx(_doTxAddress);
         setDoTxNFT(_dotxNFT);
         setDoTxEquipmentExternal(_equipmentExternal);
@@ -138,7 +138,7 @@ contract DoTxEquipment is Ownable {
         equipMultiple(_itemsToEquip);
     }
 
-    function equip(uint256 _tokenId) public returns(IDoTxNFT.Token memory){
+    function equip(uint256 _tokenId) public returns(IDoTxNFT.Token memory) {
         //dotxNFT.transferFrom(msg.sender, address(this), _tokenId);
 
         string memory itemType = dotxNFT.getTokenInfo(_tokenId).itemType;
@@ -159,7 +159,7 @@ contract DoTxEquipment is Ownable {
                     require(getEquipmentItem(msg.sender, "shield") == 0, "Shield already equipped");
                 }
             }
-        }else if(compareStrings(itemType, "shield")){
+        } else if(compareStrings(itemType, "shield")) {
             //Can be equiped only if one hand or nothing
             
             string memory equippedCategory = dotxNFT.getTokenInfo(getEquipmentItem(msg.sender, "weapon")).category;
@@ -172,7 +172,7 @@ contract DoTxEquipment is Ownable {
         equipmentExternal.equip(msg.sender, _tokenId, itemType);
     }
 
-    function unEquip(uint256 _tokenId) public{
+    function unEquip(uint256 _tokenId) public {
         string memory itemType = dotxNFT.getTokenInfo(_tokenId).itemType;
 
         require(getEquipmentItem(msg.sender, itemType) != 0, "Item not equipped");
@@ -182,7 +182,7 @@ contract DoTxEquipment is Ownable {
         //dotxNFT.transferFrom(address(this), msg.sender, _tokenId);
     }
 
-    function getEquipment(address _wallet) public view returns(EQUIPMENT memory){
+    function getEquipment(address _wallet) public view returns(EQUIPMENT memory) {
         return EQUIPMENT(equipmentExternal.getEquipment(_wallet, "head"),
         equipmentExternal.getEquipment(_wallet, "chest"),
         equipmentExternal.getEquipment(_wallet, "arms"),
@@ -192,12 +192,12 @@ contract DoTxEquipment is Ownable {
         equipmentExternal.getEquipment(_wallet, "shield"));
     }
 
-    function getEquipmentItem(address _wallet, string memory _itemType) public view returns(uint256){
+    function getEquipmentItem(address _wallet, string memory _itemType) public view returns(uint256) {
         return equipmentExternal.getEquipment(_wallet, _itemType);
     }
     
     /*
-    Set revo Address & token
+      Set DoTx Address & token
     */
     function setDoTx(address _dotx) public onlyOwner {
         dotxAddress = _dotx;

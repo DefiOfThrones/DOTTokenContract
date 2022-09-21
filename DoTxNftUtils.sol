@@ -110,7 +110,7 @@ contract DoTxNFTUtils is Ownable {
     }
     
     /*
-    Trigger nft creation
+      Trigger nft creation
     */
     function triggerCreateNFT(string[] memory _sources, string[] memory _collections) public payable {
 
@@ -141,19 +141,19 @@ contract DoTxNFTUtils is Ownable {
     }
     
     /*
-    Set revo Address & token
+      Set DoTx Address & token
     */
     function setDoTx(address _dotx) public onlyOwner {
         dotxAddress = _dotx;
         dotxToken = IDoTxTokenContract(dotxAddress);
     }
 
-    function withdrawRevo(address user, uint256 _amount) public onlyOwner {
+    function withdrawDotx(address user, uint256 _amount) public onlyOwner {
         dotxToken.transfer(user, _amount);
     }
     
     /*
-    PENDING BUY QUEUE
+      PENDING BUY QUEUE
     */
     
     function enqueuePendingTx(PENDING_TX memory data) private {

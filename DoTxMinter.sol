@@ -100,7 +100,7 @@ contract DoTxNFTMinter is Ownable {
     }
     
     /*
-    Set revo Address & token
+    Set DoTx Address & token
     */
     function setDoTx(address _dotx) public onlyOwner {
         dotxAddress = _dotx;
